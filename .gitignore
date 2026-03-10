@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# React Native / Metro
+.metro-health-check*
+
+# Android build
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+android/app/src/main/assets/*.bundle
+android/app/src/relay/assets/*.bundle
+android/app/debug.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logcat_*.txt
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Env / secrets
+.env
+.env.*
+
+# Temporary
+*.tgz

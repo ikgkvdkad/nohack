@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <clipPath id="circ">
+      <circle cx="96" cy="96" r="96"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#circ)">
+    <circle cx="96" cy="96" r="96" fill="#0A0A0A"/>
+    <text x="83" y="131" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="96" fill="#FFFFFF">H</text>
+    <text x="28" y="131" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="96" fill="#E53935">N</text>
+  </g>
+</svg>

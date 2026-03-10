@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoHack — Technical Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f5f5;
+    --surface2: #f0f2f5;
+    --accent: #2E7D32;
+    --accent-dim: #1B5E20;
+    --red: #C62828;
+    --red-dark: #8E0000;
+    --blue: #1565C0;
+    --text: #1a1a1a;
+    --text-dim: #555555;
+    --border: #d0d0d0;
+    --outgoing: #005C4B;
+    --send: #00A884;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #ffffff;
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Cover Page ──────────────────────────────────────────────────── */
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #111111;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 70% 30%, rgba(198,40,40,0.12) 0%, transparent 50%),
+                radial-gradient(circle at 30% 70%, rgba(46,125,50,0.08) 0%, transparent 50%);
+  }
+
+  .cover-logo {
+    font-size: 72pt;
+    font-weight: 900;
+    letter-spacing: -2px;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-logo .no {
+    color: var(--red);
+  }
+
+  .cover-logo .hack {
+    color: #ffffff;
+  }
+
+  .cover-subtitle {
+    font-size: 16pt;
+    color: #999999;
+    font-weight: 300;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    margin-bottom: 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-tagline {
+    font-size: 13pt;
+    color: #cccccc;
+    font-weight: 400;
+    max-width: 500px;
+    text-align: center;
+    line-height: 1.8;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cover-version {
+    position: absolute;
+    bottom: 40px;
+    color: #888888;
+    font-size: 9pt;
+    font-weight: 300;
+    z-index: 1;
+  }
+
+  .cover-line {
+    width: 60px;
+    height: 3px;
+    background: var(--red);
+    margin: 30px 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Page Layout ─────────────────────────────────────────────────── */
+  .page {
+    padding: 50px 60px;
+    page-break-after: always;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  .page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--red), var(--red-dark), transparent);
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-header-logo {
+    font-size: 14pt;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .page-header-logo .no { color: var(--red); }
+  .page-header-logo .hack { color: #333333; }
+
+  .page-header-section {
+    font-size: 9pt;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
+
+  /* ── Typography ──────────────────────────────────────────────────── */
+  h1 {
+    font-size: 28pt;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+  }
+
+  h2 {
+    font-size: 18pt;
+    font-weight: 700;
+    color: var(--text);
+    margin: 35px 0 15px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--red);
+    display: inline-block;
+  }
+
+  h3 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 25px 0 10px 0;
+  }
+
+  p {
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  .section-intro {
+    font-size: 12pt;
+    color: #444;
+    margin-bottom: 25px;
+    line-height: 1.7;
+  }
+
+  strong { color: #000; font-weight: 600; }
+
+  /* ── Code Blocks ─────────────────────────────────────────────────── */
+  .code-block {
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-left: 3px solid var(--red);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 15px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9pt;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+    color: #333;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(0,0,0,0.06);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9.5pt;
+    color: #1565C0;
+  }
+
+  /* ── Tables ──────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 10pt;
+  }
+
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid var(--red);
+  }
+
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  tr:hover td {
+    background: rgba(0,0,0,0.02);
+  }
+
+  /* ── Architecture Diagram ────────────────────────────────────────── */
+  .diagram {
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 30px;
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+  }
+
+  .device-box {
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 220px;
+    position: relative;
+  }
+
+  .device-box.nohack {
+    border-color: var(--accent);
+    background: rgba(46,125,50,0.06);
+  }
+
+  .device-box.relay {
+    border-color: var(--red);
+    background: rgba(198,40,40,0.06);
+  }
+
+  .device-title {
+    font-weight: 700;
+    font-size: 12pt;
+    margin-bottom: 12px;
+  }
+
+  .device-box.nohack .device-title { color: var(--accent); }
+  .device-box.relay .device-title { color: var(--red); }
+
+  .device-subtitle {
+    font-size: 9pt;
+    color: #666;
+    margin-bottom: 14px;
+    font-style: italic;
+  }
+
+  .device-items {
+    list-style: none;
+    font-size: 9.5pt;
+  }
+
+  .device-items li {
+    padding: 3px 0;
+    color: #333;
+  }
+
+  .device-items li::before {
+    content: '›';
+    color: var(--accent);
+    margin-right: 8px;
+    font-weight: 700;
+  }
+
+  .device-box.relay .device-items li::before {
+    color: var(--red);
+  }
+
+  .usb-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .usb-line {
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--red));
+    position: relative;
+  }
+
+  .usb-label {
+    font-size: 8pt;
+    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 600;
+  }
+
+  .usb-sublabel {
+    font-size: 7.5pt;
+    color: #666;
+  }
+
+  /* ── Info Boxes ──────────────────────────────────────────────────── */
+  .info-box {
+    background: #f0f7f0;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 14px 18px;
+    margin: 15px 0;
+    color: #222;
+  }
+
+  .info-box.warning {
+    border-left-color: #E65100;
+    background: #fff8f0;
+  }
+
+  .info-box.security {
+    border-left-color: var(--red);
+    background: #fdf0f0;
+  }
+
+  .info-box-title {
+    font-weight: 700;
+    font-size: 10pt;
+    margin-bottom: 6px;
+    color: var(--accent);
+  }
+
+  .info-box.security .info-box-title { color: var(--red); }
+
+  /* ── Lists ───────────────────────────────────────────────────────── */
+  ul {
+    margin: 10px 0 10px 20px;
+  }
+
+  li {
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  li::marker {
+    color: var(--accent);
+  }
+
+  /* ── Flow Diagrams ───────────────────────────────────────────────── */
+  .flow {
+    background: #f8f8f8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 15px 0;
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+
+  .flow-num {
+    background: var(--red);
+    color: white;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8pt;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .flow-text {
+    font-size: 10pt;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  /* ── Encryption Visual ───────────────────────────────────────────── */
+  .crypto-format {
+    background: #f8f8f8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 15px 0;
+    text-align: center;
+  }
+
+  .crypto-label {
+    font-size: 8pt;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .crypto-parts {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    align-items: stretch;
+  }
+
+  .crypto-part {
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9pt;
+    font-weight: 500;
+  }
+
+  .crypto-part.ephemeral {
+    background: rgba(198,40,40,0.1);
+    border: 1px solid var(--red);
+    color: #8E0000;
+  }
+
+  .crypto-part.nonce {
+    background: rgba(21,101,192,0.1);
+    border: 1px solid var(--blue);
+    color: #0D47A1;
+  }
+
+  .crypto-part.cipher {
+    background: rgba(46,125,50,0.1);
+    border: 1px solid var(--accent);
+    color: #1B5E20;
+  }
+
+  .crypto-size {
+    display: block;
+    font-size: 7pt;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+
+  /* ── Shield / Security ───────────────────────────────────────────── */
+  .shield-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 15px 0;
+  }
+
+  .shield-item {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+
+  .shield-item.pass {
+    border-left: 3px solid var(--accent);
+  }
+
+  .shield-item.mitigated {
+    border-left: 3px solid #FF9800;
+  }
+
+  .shield-attack {
+    font-weight: 600;
+    font-size: 10pt;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .shield-reason {
+    font-size: 9pt;
+    color: #444;
+    line-height: 1.5;
+  }
+
+  /* ── Distribution Section ────────────────────────────────────────── */
+  .distribution-box {
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    margin: 20px 0;
+    text-align: center;
+  }
+
+  .distribution-box h3 {
+    color: #1a1a1a;
+    font-size: 14pt;
+    margin-bottom: 15px;
+  }
+
+  .distribution-steps {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  .dist-step {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    width: 180px;
+    border: 1px solid var(--border);
+  }
+
+  .dist-step-num {
+    background: var(--red);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12pt;
+    margin: 0 auto 12px;
+  }
+
+  .dist-step-title {
+    font-weight: 600;
+    font-size: 10pt;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .dist-step-desc {
+    font-size: 8.5pt;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* ── Ack status visual ───────────────────────────────────────────── */
+  .ack-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 15px 0;
+  }
+
+  .ack-item {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+
+  .ack-symbol {
+    font-size: 20pt;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .ack-label {
+    font-size: 9pt;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .ack-desc {
+    font-size: 8pt;
+    color: #555;
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────────── */
+  .page-footer {
+    position: absolute;
+    bottom: 30px;
+    left: 60px;
+    right: 60px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8pt;
+    color: #999;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+  }
+
+  /* ── Utility ─────────────────────────────────────────────────────── */
+  .mt-0 { margin-top: 0; }
+  .mb-0 { margin-bottom: 0; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .no-break { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+  <div class="cover-subtitle">Technical Architecture</div>
+  <div class="cover-line"></div>
+  <div class="cover-tagline">
+    Plaintext never exists on a hackable device.<br>
+    Air-gapped messaging that eliminates the remote attack surface entirely.
+  </div>
+  <div class="cover-version">v3.0 &mdash; Confidential &mdash; March 2026</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 1: OVERVIEW + ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+    <div class="page-header-section">Overview</div>
+  </div>
+
+  <h1>System Overview</h1>
+  <p class="section-intro">
+    NoHack is a paired-device messaging system. The <strong>NoHack phone</strong> is air-gapped &mdash; permanently offline, holding all keys, contacts, and plaintext. The <strong>Relay phone</strong> is online, connecting to Telegram as a stateless, encrypted pipe. The two phones connect via a USB-C cable. No setup required &mdash; plug in and it works.
+  </p>
+
+  <h2>Device Architecture</h2>
+
+  <div class="diagram">
+    <div class="device-box nohack">
+      <div class="device-title">NoHack Phone</div>
+      <div class="device-subtitle">Air-gapped &bull; The Brain</div>
+      <ul class="device-items">
+        <li>Private keys (Keychain)</li>
+        <li>All contacts & routing data</li>
+        <li>Plaintext messages</li>
+        <li>Encryption & decryption</li>
+        <li>Full messaging UI</li>
+      </ul>
+    </div>
+
+    <div class="usb-connector">
+      <div class="usb-label">USB-C</div>
+      <div class="usb-line"></div>
+      <div class="usb-sublabel">Encrypted JSON only</div>
+    </div>
+
+    <div class="device-box relay">
+      <div class="device-title">Relay Phone</div>
+      <div class="device-subtitle">Online &bull; Dumb Pipe</div>
+      <ul class="device-items">
+        <li>Telegram client (GramJS)</li>
+        <li>No private keys</li>
+        <li>No contacts</li>
+        <li>No plaintext &mdash; ever</li>
+        <li>Stateless, swappable</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <div class="info-box-title">Zero Trust Relay</div>
+    The security model assumes the Relay is <strong>fully compromised</strong>. It has internet access, runs Telegram, and is exposed to all remote attack vectors. Even with full Relay access, an attacker cannot read, forge, or tamper with messages.
+  </div>
+
+  <h2 class="mt-0">Distribution</h2>
+
+  <div class="distribution-box">
+    <h3>Getting Started with NoHack</h3>
+    <p style="color: #555; font-size: 10pt; max-width: 500px; margin: 0 auto 10px;">
+      The NoHack app is pre-installed on the air-gapped device. To set up the Relay:
+    </p>
+    <div class="distribution-steps">
+      <div class="dist-step">
+        <div class="dist-step-num">1</div>
+        <div class="dist-step-title">Scan QR Code</div>
+        <div class="dist-step-desc">NoHack displays a QR code linking to <strong>nohack.app</strong></div>
+      </div>
+      <div class="dist-step">
+        <div class="dist-step-num">2</div>
+        <div class="dist-step-title">Install Relay</div>
+        <div class="dist-step-desc">Download the Relay APK directly &mdash; no Play Store needed</div>
+      </div>
+      <div class="dist-step">
+        <div class="dist-step-num">3</div>
+        <div class="dist-step-title">Connect USB</div>
+        <div class="dist-step-desc">Plug in a USB-C cable. Auto-connects, zero configuration</div>
+      </div>
+      <div class="dist-step">
+        <div class="dist-step-num">4</div>
+        <div class="dist-step-title">Message</div>
+        <div class="dist-step-desc">Start messaging. All encryption happens on the NoHack phone</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>NoHack Technical Architecture</span>
+    <span>Page 1</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 2: ENCRYPTION -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+    <div class="page-header-section">Encryption</div>
+  </div>
+
+  <h1>Encryption</h1>
+  <p class="section-intro">
+    All messages are encrypted using <strong>NaCl box</strong> (Curve25519 + XSalsa20-Poly1305) via the <code>tweetnacl</code> library. Each message uses a fresh ephemeral keypair for forward secrecy.
+  </p>
+
+  <h3>Key Generation</h3>
+  <p>On first launch, NoHack generates a Curve25519 keypair. The public key is stored in AsyncStorage. The secret key is stored in the Android Keychain (with an AsyncStorage fallback).</p>
+
+  <h3>Encrypted Payload Format</h3>
+  <div class="crypto-format">
+    <div class="crypto-label">base64-encoded packed payload</div>
+    <div class="crypto-parts">
+      <div class="crypto-part ephemeral">
+        ephemeralPubKey
+        <span class="crypto-size">32 bytes</span>
+      </div>
+      <div class="crypto-part nonce">
+        nonce
+        <span class="crypto-size">24 bytes</span>
+      </div>
+      <div class="crypto-part cipher">
+        ciphertext
+        <span class="crypto-size">variable</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Forward Secrecy</h3>
+  <p>Each outgoing message generates a <strong>fresh ephemeral Curve25519 keypair</strong>. The ephemeral secret key is used once for encryption and then discarded. Even if the sender's long-term key is compromised, past messages remain secure.</p>
+
+  <h3>Decryption</h3>
+  <p>NoHack extracts the ephemeral public key and nonce from the packed payload, then performs <code>nacl.box.open</code> with its own secret key. If decryption fails (wrong recipient), it throws a <code>DecryptionError</code> and silently drops the message.</p>
+
+  <div class="info-box security">
+    <div class="info-box-title">What the Relay Sees</div>
+    Only the base64-encoded encrypted blob. The Relay <strong>cannot</strong> decrypt messages (no secret key), forge messages (no sender's secret key), or read any content at any stage.
+  </div>
+
+  <h2>Message Protocol</h2>
+  <h3>.nohack v3 Format</h3>
+  <p>Every message is a JSON object with protocol version, unique ID, and tracking tag:</p>
+
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>nohack</code></td><td>Protocol version, always <code>"3"</code></td></tr>
+      <tr><td><code>id</code></td><td>Unique message ID (timestamp base36 + random)</td></tr>
+      <tr><td><code>tag</code></td><td>3-letter tracking code (A-Z, no I/O) for log correlation</td></tr>
+      <tr><td><code>type</code></td><td><code>"introduction"</code>, <code>"ack"</code>, or absent (encrypted message)</td></tr>
+      <tr><td><code>payload</code></td><td>Base64-encoded encrypted content</td></tr>
+      <tr><td><code>senderPublicKey</code></td><td>Sender's NaCl public key (base64)</td></tr>
+      <tr><td><code>recipient</code></td><td>Recipient's public key</td></tr>
+      <tr><td><code>recipientTelegramId</code></td><td>Routing: which Telegram user to deliver to</td></tr>
+      <tr><td><code>relayTelegramId</code></td><td>Attached by Relay: its own Telegram username</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Inner Payload (after decryption)</h3>
+  <div class="code-block">{
+  "type": "message",
+  "senderPublicKey": "base64...",
+  "contentType": "text | image | voice | video | mixed",
+  "body": "..."
+}</div>
+
+  <div class="page-footer">
+    <span>NoHack Technical Architecture</span>
+    <span>Page 2</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 3: USB + TRANSPORT -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+    <div class="page-header-section">USB Communication</div>
+  </div>
+
+  <h1>USB Communication</h1>
+  <p class="section-intro">
+    The two phones communicate via <strong>Android Open Accessory (AOA)</strong> protocol over USB-C. The Relay acts as USB Host and initiates the AOA handshake. NoHack acts as USB Accessory and responds.
+  </p>
+
+  <h3>Transport Protocol</h3>
+  <p>Newline-delimited JSON over USB bulk transfer (16KB chunks).</p>
+
+  <table>
+    <thead>
+      <tr><th>Command</th><th>Direction</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>decrypt</code></td><td>Relay &rarr; NoHack</td><td>Deliver encrypted message</td></tr>
+      <tr><td><code>introduction</code></td><td>Relay &rarr; NoHack</td><td>Deliver contact card</td></tr>
+      <tr><td><code>ping</code></td><td>Relay &rarr; NoHack</td><td>Check if NoHack is alive</td></tr>
+      <tr><td><code>ack</code></td><td>NoHack &rarr; Relay</td><td>Acknowledge ping / read receipts</td></tr>
+      <tr><td><code>encrypted</code></td><td>NoHack &rarr; Relay</td><td>Send encrypted message out</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Data Flow</h3>
+  <div class="code-block">Relay (Host)                          NoHack (Accessory)
+UsbHostModule.kt ──────────────────► UsbConnectionModule.kt
+   bulkTransfer()                        inputStream.read()
+   (16KB chunks)                         (16KB buffer)
+        │                                      │
+        ▼                                      ▼
+RelayUsbService.ts                     UsbService.ts
+   write()                              handleData()
+   newline-delimited                     extractLines()
+   JSON                                  parseTransportLine()
+        │                                      │
+        ▼                                      ▼
+RelayMainScreen.tsx                    ChatListScreen.tsx
+   message router                       message router</div>
+
+  <h2>USB Hardening</h2>
+  <div class="shield-grid">
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">USB Device Filter</div>
+      <div class="shield-reason">Only accepts <code>manufacturer="NoHack"</code> <code>model="NoHack Relay"</code>. No wildcard fallback — unknown USB devices are ignored entirely.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Buffer Cap</div>
+      <div class="shield-reason">1 MB maximum buffer size. If exceeded, the entire buffer is dropped and the connection is reset. Prevents memory exhaustion attacks.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Command Whitelist</div>
+      <div class="shield-reason">Only 3 commands accepted: <code>decrypt</code>, <code>introduction</code>, <code>ping</code>. All other commands are silently dropped.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">No Code Execution</div>
+      <div class="shield-reason">No <code>eval()</code>, no dynamic <code>require()</code>, no shell access. USB data is parsed as JSON only — never executed.</div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>NoHack Technical Architecture</span>
+    <span>Page 3</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 4: ROUTING + ACKS -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+    <div class="page-header-section">Routing &amp; Delivery</div>
+  </div>
+
+  <h1>Routing Architecture</h1>
+  <p class="section-intro">
+    NoHack stores all contact and routing data. The Relay is completely stateless &mdash; zero contacts, zero routing tables. Relays can be swapped anytime without losing any data.
+  </p>
+
+  <h3>Contacts</h3>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Purpose</th><th>Stored On</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>publicKey</code></td><td>NaCl public key (base64), used as contact ID</td><td>NoHack only</td></tr>
+      <tr><td><code>name</code></td><td>Deterministic name from <code>keyToName()</code></td><td>NoHack only</td></tr>
+      <tr><td><code>telegramId</code></td><td>Contact's relay Telegram username (for routing)</td><td>NoHack only</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Outgoing Message Flow</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="flow-num">1</div><div class="flow-text">NoHack encrypts message with recipient's public key</div></div>
+    <div class="flow-step"><div class="flow-num">2</div><div class="flow-text">NoHack attaches <code>recipientTelegramId</code> from contact store</div></div>
+    <div class="flow-step"><div class="flow-num">3</div><div class="flow-text">NoHack sends encrypted envelope via USB to Relay</div></div>
+    <div class="flow-step"><div class="flow-num">4</div><div class="flow-text">Relay reads <code>recipientTelegramId</code>, strips it, attaches own <code>relayTelegramId</code></div></div>
+    <div class="flow-step"><div class="flow-num">5</div><div class="flow-text">Relay sends <code>.nohack</code> file to recipient's Telegram</div></div>
+  </div>
+
+  <h3>Incoming Message Flow</h3>
+  <div class="flow">
+    <div class="flow-step"><div class="flow-num">1</div><div class="flow-text">Telegram message arrives at Relay (via NewMessage event)</div></div>
+    <div class="flow-step"><div class="flow-num">2</div><div class="flow-text">Relay validates <code>.nohack v3</code> format, forwards to NoHack via USB</div></div>
+    <div class="flow-step"><div class="flow-num">3</div><div class="flow-text">NoHack attempts decryption with its secret key</div></div>
+    <div class="flow-step"><div class="flow-num">4</div><div class="flow-text">Success: stores message, extracts sender info, saves <code>relayTelegramId</code></div></div>
+    <div class="flow-step"><div class="flow-num">5</div><div class="flow-text">Failure: silently drops (message not addressed to this device)</div></div>
+  </div>
+
+  <h2>Acknowledgement System</h2>
+  <div class="ack-grid">
+    <div class="ack-item">
+      <span class="ack-symbol" style="color: #888;">○</span>
+      <div class="ack-label">Queued</div>
+      <div class="ack-desc">Not yet sent (USB disconnected)</div>
+    </div>
+    <div class="ack-item">
+      <span class="ack-symbol" style="color: #888;">✓</span>
+      <div class="ack-label">Sent</div>
+      <div class="ack-desc">Delivered to Relay</div>
+    </div>
+    <div class="ack-item">
+      <span class="ack-symbol" style="color: var(--text-dim);">✓✓</span>
+      <div class="ack-label">Received</div>
+      <div class="ack-desc">Delivered to recipient's NoHack</div>
+    </div>
+    <div class="ack-item">
+      <span class="ack-symbol" style="color: var(--blue);">✓✓</span>
+      <div class="ack-label">Read</div>
+      <div class="ack-desc">Recipient opened the chat</div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <div class="info-box-title">Read Receipt Hardening</div>
+    Read ACKs are only sent when <code>AppState === 'active'</code> (screen on, app in foreground). Messages received while the screen is off get grey ✓✓ (received) but <strong>not</strong> blue ✓✓ (read) until the user actually views them.
+  </div>
+
+  <div class="page-footer">
+    <span>NoHack Technical Architecture</span>
+    <span>Page 4</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 5: SECURITY MODEL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+    <div class="page-header-section">Security</div>
+  </div>
+
+  <h1>Security Model</h1>
+  <p class="section-intro">
+    The Relay phone is assumed <strong>fully compromisable</strong>. It has internet access, runs Telegram, and faces all remote attack vectors. The security model is designed so that even total Relay compromise cannot breach message confidentiality.
+  </p>
+
+  <h2 class="mt-0">What a Compromised Relay CANNOT Do</h2>
+  <div class="shield-grid">
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Read Messages</div>
+      <div class="shield-reason">NaCl box encryption. Relay has no secret key &mdash; only sees opaque base64 blobs.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Forge Messages</div>
+      <div class="shield-reason">Inner payload includes <code>senderPublicKey</code>. Forging requires the sender's secret key.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Execute Code on NoHack</div>
+      <div class="shield-reason">USB protocol only accepts 3 JSON commands. No eval, no shell, no dynamic code loading.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Access NoHack Filesystem</div>
+      <div class="shield-reason">Android Accessory mode provides app-level I/O only. No filesystem, no ADB, no MTP/PTP.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Install Malware on NoHack</div>
+      <div class="shield-reason">Accessory USB mode cannot push APKs, access ADB, or modify the system.</div>
+    </div>
+    <div class="shield-item pass no-break">
+      <div class="shield-attack">Brute-force Decryption</div>
+      <div class="shield-reason">Ephemeral keys per message. Curve25519 provides ~128-bit security level.</div>
+    </div>
+  </div>
+
+  <h2>What a Compromised Relay CAN Do (Mitigated)</h2>
+  <div class="shield-grid">
+    <div class="shield-item mitigated no-break">
+      <div class="shield-attack">Inject Fake Introduction</div>
+      <div class="shield-reason">New contacts show verification warning: <em>"Verify this person out-of-band before sharing secrets."</em></div>
+    </div>
+    <div class="shield-item mitigated no-break">
+      <div class="shield-attack">Redirect Replies</div>
+      <div class="shield-reason"><code>relayTelegramId</code> changes are detected and logged with <code>console.warn</code>.</div>
+    </div>
+    <div class="shield-item mitigated no-break">
+      <div class="shield-attack">Impersonate Relay via USB</div>
+      <div class="shield-reason">USB filter requires exact <code>manufacturer</code> and <code>model</code> match.</div>
+    </div>
+    <div class="shield-item mitigated no-break">
+      <div class="shield-attack">Memory Exhaustion</div>
+      <div class="shield-reason">USB buffer hard-capped at 1 MB. Excess data is dropped entirely.</div>
+    </div>
+  </div>
+
+  <h2>Trust Assumptions</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Assumption</th><th>Rationale</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Physical USB cable</strong></td><td>Assumed passive &mdash; not a malicious hardware implant</td></tr>
+      <tr><td>2</td><td><strong>First contact exchange</strong></td><td>Initial key exchange requires out-of-band verification</td></tr>
+      <tr><td>3</td><td><strong>Android OS on NoHack</strong></td><td>Trusted (offline = no remote compromise vector; physical access is a separate risk)</td></tr>
+      <tr><td>4</td><td><strong>Relay swappability</strong></td><td>Relay can be replaced anytime; NoHack retains all contacts and keys</td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-footer">
+    <span>NoHack Technical Architecture</span>
+    <span>Page 5</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- PAGE 6: TELEGRAM + BUILD + PERSISTENCE -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-logo"><span class="no">NO</span><span class="hack">HACK</span></div>
+    <div class="page-header-section">Infrastructure</div>
+  </div>
+
+  <h1>Telegram Integration</h1>
+  <p class="section-intro">
+    The Relay connects to Telegram using <strong>GramJS</strong> (<code>telegram</code> npm package) via WebSocket transport on Android.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Aspect</th><th>Detail</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Library</td><td>GramJS v2.26.22 with Hermes compatibility patch</td></tr>
+      <tr><td>Transport</td><td>WebSocket (<code>useWSS: true</code>, <code>ConnectionTCPObfuscated</code>)</td></tr>
+      <tr><td>Outgoing</td><td>Sent as <code>.nohack</code> file attachment via <code>client.sendFile()</code></td></tr>
+      <tr><td>Incoming</td><td>Received via <code>NewMessage</code> event handler</td></tr>
+      <tr><td>Polyfill</td><td><code>Symbol.asyncIterator</code> polyfilled for Hermes engine</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Build System</h2>
+  <p>Two Android product flavors built from the same codebase:</p>
+
+  <table>
+    <thead>
+      <tr><th>Flavor</th><th>Package</th><th>Entry Point</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>nohack</strong></td><td><code>com.nohack</code></td><td><code>index.js</code> &rarr; <code>App.tsx</code></td></tr>
+      <tr><td><strong>relay</strong></td><td><code>com.nohack.relay</code></td><td><code>index.relay.js</code> &rarr; <code>RelayApp.tsx</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Data Persistence</h2>
+  <table>
+    <thead>
+      <tr><th>Data</th><th>Storage</th><th>Device</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Private key</td><td>Android Keychain + AsyncStorage fallback</td><td>NoHack only</td></tr>
+      <tr><td>Public key</td><td>AsyncStorage</td><td>NoHack only</td></tr>
+      <tr><td>Contacts</td><td>AsyncStorage (<code>@nohack_contacts</code>)</td><td>NoHack only</td></tr>
+      <tr><td>Messages</td><td>AsyncStorage (per-contact arrays)</td><td>NoHack only</td></tr>
+      <tr><td>Telegram session</td><td>AsyncStorage</td><td>Relay only</td></tr>
+      <tr><td>Everything else</td><td>&mdash;</td><td>Relay stores <strong>nothing</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Contact Identification</h2>
+  <p><code>keyToName(publicKey)</code> generates a deterministic human-readable name from a public key hash:</p>
+  <div class="crypto-format">
+    <div class="crypto-label">Example</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12pt; color: #1B5E20;">
+      hash(publicKey) &rarr; "BrightFox482"
+    </div>
+    <div style="margin-top: 8px; font-size: 9pt; color: #555;">
+      Format: Adjective + Noun + 3 digits &bull; Same key always produces the same name
+    </div>
+  </div>
+
+  <div class="info-box warning">
+    <div class="info-box-title" style="color: #FF9800;">Not Authentication</div>
+    <code>keyToName()</code> is a <strong>convenience label</strong>, not authentication. Users must verify contacts through a separate, out-of-band channel before sharing sensitive information.
+  </div>
+
+  <div class="page-footer">
+    <span>NoHack Technical Architecture</span>
+    <span>Page 6</span>
+  </div>
+</div>
+
+</body>
+</html>

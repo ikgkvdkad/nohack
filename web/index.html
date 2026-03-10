@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoHack</title>
+<script src="nacl-fast.min.js"></script>
+<script src="nacl-util.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0B141A;
+    color: #E9EDEF;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: #0B141A;
+  }
+
+  .screen { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .screen.active { display: flex; }
+
+  /* ── Header (ChatList) */
+  .header {
+    padding: 14px 16px;
+    background: #1F2C34;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .header-left { display: flex; align-items: center; gap: 8px; }
+  .header-title { color: #E9EDEF; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
+  .header-name { font-size: 14px; font-weight: 400; color: #8696A0; letter-spacing: 0; }
+  .header-right { display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 4px; }
+  .status-label { color: #8696A0; font-size: 12px; }
+
+  .gear-btn {
+    color: #8696A0; font-size: 18px; background: none; border: none;
+    cursor: pointer; padding: 4px 6px; line-height: 1; margin-left: 8px;
+  }
+  .gear-btn:hover { color: #E9EDEF; }
+
+  /* ── Kill switch */
+  .kill-switch-wrapper {
+    padding: 12px 16px 0;
+  }
+  .kill-switch-track {
+    height: 44px;
+    border-radius: 22px;
+    background: rgba(229,57,53,0.15);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+  }
+  .kill-switch-label {
+    color: rgba(229,57,53,0.7);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    pointer-events: none;
+  }
+  .kill-switch-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    background: #E53935;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 0;
+    top: 0;
+    cursor: grab;
+    box-shadow: 0 2px 8px rgba(229,57,53,0.4);
+    transition: none;
+  }
+  .kill-switch-thumb.snap-back {
+    transition: left 0.3s ease;
+  }
+
+  /* ── Chat List */
+  .chat-list { flex: 1; overflow-y: auto; }
+  .contact-row {
+    display: flex; align-items: center; padding: 12px 16px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .contact-row:hover { background: rgba(255,255,255,0.04); }
+  .avatar {
+    width: 50px; height: 50px; border-radius: 25px;
+    background: rgba(76,175,80,0.18);
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 14px; flex-shrink: 0;
+  }
+  .avatar-text { color: #4CAF50; font-size: 21px; font-weight: 700; }
+  .contact-info { flex: 1; min-width: 0; border-bottom: 1px solid #222D34; padding-bottom: 12px; }
+  .contact-top { display: flex; justify-content: space-between; align-items: center; }
+  .contact-name { color: #E9EDEF; font-size: 16px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 8px; }
+  .contact-time { color: #8696A0; font-size: 12px; flex-shrink: 0; }
+  .contact-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 3px; }
+  .contact-preview { color: #8696A0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 8px; }
+  .unread-badge {
+    background: #00A884; border-radius: 11px; min-width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 6px; color: #FFF; font-size: 12px; font-weight: 700;
+  }
+
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; }
+  .empty-title { color: #E9EDEF; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .empty-hint { color: #8696A0; font-size: 14px; text-align: center; }
+
+  /* ── Bottom bar */
+  .bottom-bar {
+    padding: 10px 16px 18px;
+    background: #1F2C34;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .btn-secondary {
+    background: #2A3942; color: #E9EDEF; border: none;
+    border-radius: 12px; padding: 14px; font-size: 14px; font-weight: 500;
+    cursor: pointer; text-align: center; transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: #3A4952; }
+
+  .sent-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; background: rgba(0,168,132,0.1);
+  }
+  .sent-check { color: #00A884; font-size: 14px; font-weight: 700; }
+  .sent-code { color: #E9EDEF; font-size: 16px; font-weight: 700; font-family: monospace; letter-spacing: 3px; }
+  .sent-label-text { color: #8696A0; font-size: 12px; }
+
+  /* ── Paste overlay */
+  .overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9); z-index: 10;
+    display: none; flex-direction: column; padding: 20px;
+  }
+  .overlay.active { display: flex; }
+  .overlay-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .overlay-title { color: #E9EDEF; font-size: 18px; font-weight: 600; }
+  .overlay-close { color: #8696A0; font-size: 24px; background: none; border: none; cursor: pointer; }
+  .overlay-close:hover { color: #E9EDEF; }
+  .paste-input {
+    flex: 1; width: 100%; background: #1F2C34;
+    border: 1px solid #2A3942; border-radius: 12px;
+    color: #00A884; font-family: monospace; font-size: 13px; padding: 16px;
+    resize: none; outline: none;
+  }
+  .paste-input::placeholder { color: #8696A0; }
+  .paste-input:focus { border-color: #00A884; }
+  .overlay-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .overlay-actions button { flex: 1; padding: 14px; font-size: 15px; }
+  .btn-primary {
+    background: #00A884; color: #FFF; border: none; border-radius: 12px;
+    font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-ghost {
+    background: #2A3942; color: #E9EDEF; border: none; border-radius: 12px;
+    font-weight: 500; cursor: pointer; transition: background 0.15s;
+  }
+  .btn-ghost:hover { background: #3A4952; }
+
+  /* ── Settings */
+  .settings-field { margin-bottom: 20px; }
+  .settings-label { color: #8696A0; font-size: 13px; margin-bottom: 6px; }
+  .settings-input {
+    width: 100%; background: #2A3942;
+    border: 1px solid #3A4952; border-radius: 10px;
+    color: #E9EDEF; font-size: 15px; padding: 12px 16px; outline: none;
+  }
+  .settings-input:focus { border-color: #00A884; }
+  .settings-info { color: #8696A0; font-size: 12px; margin-top: 6px; line-height: 18px; }
+
+  /* ── Chat Screen ─────────────────────────────────────── */
+  .chat-header {
+    display: flex; align-items: center;
+    padding: 8px 6px;
+    background: #1F2C34;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .chat-back-btn {
+    color: #AAAAAA; font-size: 28px; font-weight: 300; background: none; border: none;
+    cursor: pointer; padding: 0 8px 0 4px; line-height: 1;
+  }
+  .chat-back-btn:hover { color: #E9EDEF; }
+  .chat-header-avatar {
+    width: 40px; height: 40px; border-radius: 20px;
+    background: rgba(76,175,80,0.2);
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 10px; flex-shrink: 0;
+  }
+  .chat-header-avatar-text { color: #4CAF50; font-size: 18px; font-weight: 700; }
+  .chat-header-center { flex: 1; }
+  .chat-header-name { color: #E9EDEF; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-header-sub { color: #8696A0; font-size: 12px; margin-top: 1px; }
+  .chat-conn-dot { width: 8px; height: 8px; border-radius: 4px; margin-right: 12px; }
+
+  /* ── Messages */
+  .message-list {
+    flex: 1; overflow-y: auto; padding: 6px 8px;
+    display: flex; flex-direction: column;
+    background: #0B141A;
+  }
+  .message-list-inner {
+    display: flex; flex-direction: column; justify-content: flex-end;
+    min-height: 100%;
+  }
+
+  .msg-row { display: flex; margin-bottom: 2px; }
+  .msg-row.out { justify-content: flex-end; }
+  .msg-row.in { justify-content: flex-start; }
+
+  .bubble {
+    border-radius: 8px;
+    padding: 6px 9px 5px;
+    max-width: 80%;
+    min-width: 80px;
+    word-break: break-word;
+  }
+  .bubble.in {
+    background: #1F2C34;
+    border-top-left-radius: 0;
+  }
+  .bubble.out {
+    background: #005C4B;
+    border-top-right-radius: 0;
+  }
+  .bubble.queued { opacity: 0.5; }
+
+  .sender-name { color: #4CAF50; font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+  .intro-label-msg { color: #8696A0; font-size: 13px; }
+  .msg-text { color: #E9EDEF; font-size: 14.5px; line-height: 19px; white-space: pre-wrap; }
+
+  /* ── Media thumbnails */
+  .media-thumb {
+    border-radius: 6px; overflow: hidden; margin: 2px 0 4px;
+    max-width: 240px; position: relative;
+  }
+  .media-thumb img {
+    width: 240px; height: 180px; object-fit: cover; border-radius: 6px; display: block;
+  }
+  .video-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.3);
+  }
+  .video-play-icon { color: #FFF; font-size: 36px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
+
+  /* ── Voice */
+  .voice-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; min-width: 150px;
+  }
+  .voice-play-btn {
+    color: #8696A0; font-size: 16px; font-weight: 700;
+    width: 28px; height: 28px; border-radius: 14px;
+    background: rgba(134,150,160,0.15); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .voice-play-btn:hover { background: rgba(134,150,160,0.25); }
+  .voice-bar-bg {
+    flex: 1; height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 1.5px; overflow: hidden;
+  }
+  .voice-bar-fill { height: 100%; background: #4CAF50; border-radius: 1.5px; width: 0%; transition: width 0.1s; }
+  .voice-duration { color: #8696A0; font-size: 11px; min-width: 32px; text-align: right; }
+
+  /* ── Meta (time + ticks) */
+  .msg-meta {
+    display: flex; justify-content: flex-end; align-items: center;
+    gap: 3px; margin-top: 1px;
+  }
+  .msg-time { font-size: 11px; }
+  .msg-time.in { color: rgba(134,150,160,0.6); }
+  .msg-time.out { color: rgba(255,255,255,0.5); }
+  .tick { font-size: 12px; }
+  .tick.clock { color: rgba(255,255,255,0.38); font-size: 11px; }
+  .tick.grey { color: rgba(255,255,255,0.5); }
+  .tick.blue { color: #53BDEB; }
+
+  /* ── Recording bar */
+  .recording-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; background: #1F2C34; flex-shrink: 0;
+  }
+  .record-dot {
+    width: 10px; height: 10px; border-radius: 5px; background: #E53935;
+    animation: blink 1s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .recording-text { flex: 1; color: #E9EDEF; font-size: 16px; font-family: monospace; }
+  .cancel-record-btn {
+    width: 36px; height: 36px; border-radius: 18px;
+    background: rgba(229,57,53,0.15); border: none; cursor: pointer;
+    color: #E53935; font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Compose bar */
+  .compose-bar {
+    display: flex; align-items: flex-end; gap: 6px;
+    padding: 6px 6px 12px;
+    background: #1F2C34; flex-shrink: 0;
+  }
+  .attach-btn {
+    width: 40px; height: 40px; border-radius: 20px;
+    background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .attach-btn:hover svg { fill: #E9EDEF; }
+  .input-wrap {
+    flex: 1; background: #2A3942; border-radius: 21px;
+    padding: 7px 14px; min-height: 42px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .tag-hint {
+    color: #4CAF50; font-size: 10px; font-weight: 600;
+    font-family: monospace; letter-spacing: 0.5px; margin-bottom: 1px;
+  }
+  .compose-input {
+    width: 100%; background: transparent; border: none; color: #E9EDEF;
+    font-size: 16px; line-height: 20px; resize: none; min-height: 20px;
+    max-height: 100px; outline: none; font-family: inherit;
+  }
+  .compose-input::placeholder { color: #8696A0; }
+  .send-btn {
+    width: 42px; height: 42px; border-radius: 21px; background: #00A884;
+    border: none; color: #FFF; font-size: 16px; font-weight: 700;
+    cursor: pointer; flex-shrink: 0; transition: opacity 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .send-btn:disabled { opacity: 0.3; cursor: default; }
+  .send-btn:hover:not(:disabled) { opacity: 0.85; }
+  .mic-btn {
+    width: 42px; height: 42px; border-radius: 21px;
+    background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mic-btn:hover svg { fill: #E9EDEF; }
+
+  /* ── Image preview strip */
+  .image-preview-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 16px; background: #1F2C34; flex-shrink: 0;
+  }
+  .preview-thumb { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
+  .clear-image { color: #E53935; font-size: 13px; background: none; border: none; cursor: pointer; }
+
+  /* ── Toast */
+  .copy-toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #00A884; color: #FFF; padding: 10px 20px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; z-index: 100;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .copy-toast.show { opacity: 1; }
+
+  /* ── Context menu (long-press) */
+  .context-menu {
+    position: absolute; background: #2A3942; border-radius: 8px;
+    padding: 4px 0; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    display: none;
+  }
+  .context-menu.active { display: block; }
+  .context-menu-item {
+    padding: 10px 20px; color: #E9EDEF; font-size: 14px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .context-menu-item:hover { background: rgba(255,255,255,0.06); }
+  .context-menu-item.danger { color: #E53935; }
+
+  @media (min-width: 500px) {
+    body { padding: 20px 0; align-items: flex-start; }
+    #app {
+      min-height: calc(100vh - 40px);
+      border-radius: 24px; overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ── Chat List Screen ────────────────────────────────────── -->
+  <div id="chatListScreen" class="screen active">
+    <div class="header">
+      <div class="header-left">
+        <span class="header-title"><span style="color:#E53935">NO</span>HACK <span class="header-name" id="myNameDisplay"></span></span>
+      </div>
+      <div class="header-right">
+        <div class="status-dot" id="listConnDot" style="background:#E53935"></div>
+        <span class="status-label" id="listConnLabel">Offline</span>
+        <button class="gear-btn" onclick="openSettings()" title="Settings">&#9881;</button>
+      </div>
+    </div>
+
+    <!-- Kill switch -->
+    <div class="kill-switch-wrapper">
+      <div class="kill-switch-track" id="killTrack">
+        <span class="kill-switch-label" id="killLabel">SLIDE TO RESET</span>
+        <div class="kill-switch-thumb" id="killThumb"></div>
+      </div>
+    </div>
+
+    <div class="chat-list" id="chatList">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-title">No conversations yet</div>
+        <div class="empty-hint">Share your contact card to start messaging</div>
+      </div>
+    </div>
+
+    <div id="sentBanner" class="sent-banner" style="display:none">
+      <span class="sent-check">sent</span>
+      <span class="sent-code" id="sentTag"></span>
+      <span class="sent-label-text">copied to clipboard</span>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="btn-secondary" onclick="handleShareContact()">Share my contact card</button>
+      <button class="btn-secondary" onclick="openPasteOverlay()">Paste incoming message</button>
+    </div>
+  </div>
+
+  <!-- ── Chat Screen ─────────────────────────────────────────── -->
+  <div id="chatScreen" class="screen">
+    <div class="chat-header">
+      <button class="chat-back-btn" onclick="backToList()">&#8249;</button>
+      <div class="chat-header-avatar">
+        <span class="chat-header-avatar-text" id="chatAvatarLetter"></span>
+      </div>
+      <div class="chat-header-center">
+        <div class="chat-header-name" id="chatTitle"></div>
+        <div class="chat-header-sub" id="chatSubtitle">offline</div>
+      </div>
+      <div class="chat-conn-dot" id="chatConnDot" style="background:#FFC107"></div>
+    </div>
+
+    <div class="message-list" id="messageList">
+      <div class="message-list-inner" id="messageListInner"></div>
+    </div>
+
+    <!-- Recording bar (hidden by default) -->
+    <div class="recording-bar" id="recordingBar" style="display:none">
+      <div class="record-dot"></div>
+      <span class="recording-text" id="recordingTime">0:00</span>
+      <button class="cancel-record-btn" onclick="cancelRecording()">X</button>
+      <button class="send-btn" onclick="stopAndSendVoice()"><svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M16.692 12.474 3.506 13.26c-.314 0-.471.157-.471.314L1.152 20.015c-.314.786-.152 1.875.628 2.505.63.47 1.727.58 2.354.323L21.715 14.045c.941-.47 1.412-1.413 1.255-2.356-.157-.628-.628-1.257-1.256-1.571L4.134 1.163C3.349.9 2.407 1.006 1.78 1.478.994 2.106.838 3.049 1.152 3.991l1.883 6.441c0 .157.314.314.471.314l13.186.786s.47 0 .47.47c0 .472-.47.472-.47.472Z"/></svg></button>
+    </div>
+
+    <!-- Image preview (hidden by default) -->
+    <div class="image-preview-bar" id="imagePreviewBar" style="display:none">
+      <img class="preview-thumb" id="previewThumbImg" src="" />
+      <button class="clear-image" onclick="clearImage()">Remove</button>
+    </div>
+
+    <!-- Compose bar -->
+    <div class="compose-bar" id="composeBarEl">
+      <button class="attach-btn" id="attachBtn" onclick="handleAttach()"><svg width="22" height="22" viewBox="0 0 24 24" fill="#8696A0" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.778 21h4.444c3.121 0 4.682 0 5.803-.735a4.5 4.5 0 0 0 1.226-1.204C22 17.96 22 16.428 22 13.364c0-3.065 0-4.597-.749-5.697a4.5 4.5 0 0 0-1.226-1.204c-.72-.473-1.622-.641-3.003-.702-.659 0-1.226-.49-1.355-1.124C15.473 3.685 14.622 3 13.634 3h-3.268c-.988 0-1.839.685-2.033 1.636-.13.635-.696 1.125-1.355 1.125-1.381.06-2.282.23-3.003.702a4.5 4.5 0 0 0-1.226 1.204C2 8.767 2 10.3 2 13.364c0 3.064 0 4.596.749 5.697.324.476.741.867 1.226 1.204C5.096 21 6.657 21 9.778 21ZM12 9.273a4.09 4.09 0 0 0-4.167 4.09A4.09 4.09 0 0 0 12 17.455a4.09 4.09 0 0 0 4.167-4.091A4.09 4.09 0 0 0 12 9.273Zm0 1.636a2.46 2.46 0 0 0-2.5 2.455 2.46 2.46 0 0 0 2.5 2.454 2.46 2.46 0 0 0 2.5-2.454 2.46 2.46 0 0 0-2.5-2.455Zm4.722-.818c0-.452.373-.818.834-.818h1.11c.461 0 .834.366.834.818a.826.826 0 0 1-.833.818h-1.111a.826.826 0 0 1-.834-.818Z"/></svg></button>
+      <div class="input-wrap">
+        <div class="tag-hint" id="composeTag"></div>
+        <textarea class="compose-input" id="composeInput" placeholder="Message" rows="1" oninput="updateComposeUI(); autoGrow(this)"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="handleSend()" disabled style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M16.692 12.474 3.506 13.26c-.314 0-.471.157-.471.314L1.152 20.015c-.314.786-.152 1.875.628 2.505.63.47 1.727.58 2.354.323L21.715 14.045c.941-.47 1.412-1.413 1.255-2.356-.157-.628-.628-1.257-1.256-1.571L4.134 1.163C3.349.9 2.407 1.006 1.78 1.478.994 2.106.838 3.049 1.152 3.991l1.883 6.441c0 .157.314.314.471.314l13.186.786s.47 0 .47.47c0 .472-.47.472-.47.472Z"/></svg></button>
+      <button class="mic-btn" id="micBtn" onclick="startRecording()"><svg width="22" height="22" viewBox="0 0 64 64" fill="#8696A0" xmlns="http://www.w3.org/2000/svg"><path d="M32 44c6.629 0 12-5.371 12-12V12c0-6.629-5.371-12-12-12S20 5.371 20 12v20c0 6.629 5.371 12 12 12z"/><path d="M52 28c-2.211 0-4 1.789-4 4 0 8.836-7.164 16-16 16s-16-7.164-16-16c0-2.211-1.789-4-4-4s-4 1.789-4 4c0 11.887 8.656 21.73 20 23.641V60c0 2.211 1.789 4 4 4s4-1.789 4-4v-4.359C47.344 53.73 56 43.887 56 32c0-2.211-1.789-4-4-4z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- ── Paste overlay ───────────────────────────────────────── -->
+  <div class="overlay" id="pasteOverlay">
+    <div class="overlay-header">
+      <span class="overlay-title">Paste message</span>
+      <button class="overlay-close" onclick="closePasteOverlay()">&times;</button>
+    </div>
+    <textarea class="paste-input" id="pasteInput" placeholder="Paste .nohack JSON from Telegram here..."></textarea>
+    <div class="overlay-actions">
+      <button class="btn-primary" onclick="handlePasteOpen()">Process</button>
+      <button class="btn-ghost" onclick="closePasteOverlay()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── Settings overlay ────────────────────────────────────── -->
+  <div class="overlay" id="settingsOverlay">
+    <div class="overlay-header">
+      <span class="overlay-title">Settings</span>
+      <button class="overlay-close" onclick="closeSettings()">&times;</button>
+    </div>
+    <div class="settings-field">
+      <div class="settings-label">Relay</div>
+      <div id="tgSettingsOffline">
+        <input class="settings-input" id="relayUrlInput" placeholder="ws://127.0.0.1:19847" style="margin-bottom:8px" />
+        <button class="btn-primary" id="relayConnBtn" onclick="relayConnAction()" style="width:100%;padding:12px">Connect to Relay</button>
+        <div id="relayConnError" style="color:#E53935;font-size:12px;margin-top:6px"></div>
+      </div>
+      <div id="tgSettingsOnline" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div class="status-dot" id="relaySettingsDot" style="background:#FFC107;width:10px;height:10px;border-radius:5px;flex-shrink:0"></div>
+          <span style="font-weight:600" id="relaySettingsLabel">Connected to relay</span>
+        </div>
+        <div class="settings-info" id="relaySettingsInfo">Telegram not logged in. Open the relay UI to log in.</div>
+        <button class="btn-ghost" onclick="relayDisconnect()" style="margin-top:8px;color:#E53935;border-color:#E53935">Disconnect</button>
+      </div>
+    </div>
+    <div class="settings-field">
+      <div class="settings-label">Your NoHack identity</div>
+      <div style="color:#4CAF50;font-family:monospace;font-size:16px;font-weight:700" id="settingsName"></div>
+      <div class="settings-info" id="settingsKey" style="word-break:break-all;font-family:monospace;margin-top:8px"></div>
+    </div>
+    <button class="btn-primary" onclick="closeSettings()" style="padding:14px;font-size:15px;margin-top:12px;width:100%">Done</button>
+  </div>
+
+  <!-- Context menu for long-press on queued messages -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item danger" onclick="deleteContextMessage()">Delete unsent message</div>
+  </div>
+
+  <div class="copy-toast" id="copyToast">Copied to clipboard</div>
+
+  <!-- Hidden file input for images -->
+  <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFileSelected(event)" />
+</div>
+
+<script>
+// ── Key name derivation (mirrors deviceName.ts) ──────────────────────────
+
+const ADJECTIVES = [
+  'Bold','Brave','Bright','Calm','Clear','Cold','Cool','Crimson',
+  'Dark','Dawn','Deep','Dusk','Ember','Fair','Faint','Feral',
+  'Fierce','Fleet','Fog','Frost','Ghost','Gold','Grand','Gray',
+  'Haze','Hidden','Hollow','Hushed','Idle','Iron','Ivory','Keen',
+  'Last','Lone','Lost','Lucky','Lunar','Misty','Moss','Mute',
+  'Noble','North','Odd','Old','Pale','Pine','Proud','Quiet',
+  'Rapid','Rare','Raven','Red','Ridge','Roam','Rogue','Rust',
+  'Sage','Salt','Sand','Shadow','Sharp','Silent','Silver','Slate',
+  'Sleek','Slow','Smoke','Snow','Solar','South','Steel','Still',
+  'Stone','Storm','Stray','Summer','Swift','Thorn','Tidal','True',
+  'Vast','Velvet','Vivid','Warm','West','White','Wild','Winter',
+  'Wren','Zinc',
+];
+
+const NOUNS = [
+  'Badger','Bear','Birch','Bison','Brook','Cedar','Cliff','Cloud',
+  'Cobra','Coral','Crane','Creek','Crow','Dagger','Deer','Dove',
+  'Drift','Dune','Eagle','Echo','Elk','Ember','Falcon','Fern',
+  'Finch','Flint','Fox','Gale','Gem','Glen','Gorge','Grove',
+  'Gull','Hare','Hawk','Heron','Hill','Hollow','Hound','Isle',
+  'Ivy','Jade','Jay','Kestrel','Lake','Lark','Leaf','Ledge',
+  'Leopard','Lily','Linden','Lion','Lynx','Maple','Marsh','Meadow',
+  'Mink','Moon','Moth','Oak','Orchid','Orca','Osprey','Otter',
+  'Owl','Panda','Panther','Peak','Pearl','Pike','Plover','Pond',
+  'Puma','Quail','Raven','Reef','Ridge','River','Robin','Rock',
+  'Rose','Sage','Seal','Shrike','Sparrow','Spruce','Stag','Swan',
+  'Tiger','Trail','Trout','Vale','Viper','Wander','Wolf','Wren',
+];
+
+function keyToName(publicKey) {
+  let hash = 0;
+  for (let i = 0; i < publicKey.length; i++) {
+    hash = ((hash << 5) - hash + publicKey.charCodeAt(i)) | 0;
+  }
+  hash = Math.abs(hash);
+  const adj = ADJECTIVES[hash % ADJECTIVES.length];
+  const noun = NOUNS[Math.floor(hash / ADJECTIVES.length) % NOUNS.length];
+  const num = (hash % 900) + 100;
+  return adj + noun + num;
+}
+
+// ── Crypto (real NaCl encryption) ────────────────────────────────────────
+
+const nacl = window.nacl;
+const naclUtil = window.nacl.util || window.naclUtil;
+const encodeBase64 = naclUtil.encodeBase64;
+const decodeBase64 = naclUtil.decodeBase64;
+const encodeUTF8 = naclUtil.encodeUTF8;
+const decodeUTF8 = naclUtil.decodeUTF8;
+
+let publicKeyBytes = null;
+let secretKeyBytes = null;
+
+function initKeys() {
+  const storedPub = localStorage.getItem('@nohack_web_public_key');
+  const storedSec = localStorage.getItem('@nohack_web_secret_key');
+  if (storedPub && storedSec) {
+    publicKeyBytes = decodeBase64(storedPub);
+    secretKeyBytes = decodeBase64(storedSec);
+    return false;
+  }
+  const keyPair = nacl.box.keyPair();
+  publicKeyBytes = keyPair.publicKey;
+  secretKeyBytes = keyPair.secretKey;
+  localStorage.setItem('@nohack_web_public_key', encodeBase64(publicKeyBytes));
+  localStorage.setItem('@nohack_web_secret_key', encodeBase64(secretKeyBytes));
+  return true;
+}
+
+function getPublicKey() { return encodeBase64(publicKeyBytes); }
+
+function factoryReset() {
+  // Zero out secret key memory
+  if (secretKeyBytes) {
+    for (var i = 0; i < secretKeyBytes.length; i++) secretKeyBytes[i] = 0;
+    secretKeyBytes = null;
+  }
+  publicKeyBytes = null;
+
+  // Tell relay to reset too (if connected)
+  if (relayConnected) {
+    relaySend({ cmd: 'factory-reset' });
+  }
+
+  // Clear all stored data
+  localStorage.removeItem('@nohack_web_public_key');
+  localStorage.removeItem('@nohack_web_secret_key');
+  localStorage.removeItem('@nohack_web_contacts');
+  localStorage.removeItem('@nohack_web_messages');
+  localStorage.removeItem('@nohack_web_telegram');
+  localStorage.removeItem('@nohack_web_name');
+
+  // Generate fresh keys
+  initKeys();
+
+  // Reset in-memory state
+  contacts = [];
+  messages = {};
+  unreadCounts = {};
+  currentContactKey = null;
+  telegramUsername = '';
+  pendingTag = generateTag();
+
+  // Re-render
+  myName = keyToName(getPublicKey());
+  document.getElementById('myNameDisplay').textContent = myName;
+  renderChatList();
+  showScreen('chatListScreen');
+  showToast('Factory reset — new identity created');
+}
+
+function encryptMessage(plaintext, recipientPubKeyBase64) {
+  const recipientPub = decodeBase64(recipientPubKeyBase64);
+  const message = decodeUTF8(plaintext);
+  const ephemeral = nacl.box.keyPair();
+  const nonce = nacl.randomBytes(nacl.box.nonceLength);
+  const ciphertext = nacl.box(message, nonce, recipientPub, ephemeral.secretKey);
+  if (!ciphertext) throw new Error('Encryption failed');
+  const packed = new Uint8Array(32 + 24 + ciphertext.length);
+  packed.set(ephemeral.publicKey, 0);
+  packed.set(nonce, 32);
+  packed.set(ciphertext, 56);
+  return encodeBase64(packed);
+}
+
+function decryptMessage(encryptedBase64) {
+  const packed = decodeBase64(encryptedBase64);
+  if (packed.length < 56) throw new Error('Invalid encrypted data');
+  const ephemeralPub = packed.slice(0, 32);
+  const nonce = packed.slice(32, 56);
+  const ciphertext = packed.slice(56);
+  const plaintext = nacl.box.open(ciphertext, nonce, ephemeralPub, secretKeyBytes);
+  if (!plaintext) throw new Error('Cannot decrypt — not addressed to you');
+  return encodeUTF8(plaintext);
+}
+
+// ── NoHack v3 format ─────────────────────────────────────────────────────
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+}
+
+function generateTag() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let tag = '';
+  for (let i = 0; i < 3; i++) tag += chars[Math.floor(Math.random() * chars.length)];
+  return tag;
+}
+
+function packInnerPayload(senderPublicKey, contentType, body) {
+  return JSON.stringify({ type: 'message', senderPublicKey, contentType, body });
+}
+
+function unpackInnerPayload(json) {
+  const data = JSON.parse(json);
+  if (data.type !== 'message' || !data.senderPublicKey || !data.body) throw new Error('Invalid inner payload');
+  return data;
+}
+
+function createAck(ackType, ackIds) {
+  return {
+    tag: 'ACK', nohack: '3', id: generateId(),
+    type: 'ack', ackType: ackType, ackIds: ackIds
+  };
+}
+
+// ── State ────────────────────────────────────────────────────────────────
+
+let contacts = JSON.parse(localStorage.getItem('@nohack_web_contacts') || '[]');
+let messages = JSON.parse(localStorage.getItem('@nohack_web_messages') || '{}');
+let unreadCounts = {};
+let currentContactKey = null;
+let pendingTag = generateTag();
+let telegramUsername = localStorage.getItem('@nohack_web_telegram') || '';
+let imageBase64 = null;
+let contextMessageId = null;
+
+function saveContacts() { localStorage.setItem('@nohack_web_contacts', JSON.stringify(contacts)); }
+function saveMessages() { localStorage.setItem('@nohack_web_messages', JSON.stringify(messages)); }
+
+function addOrUpdateContact(publicKey, name, telegramId) {
+  let c = contacts.find(function(x) { return x.publicKey === publicKey; });
+  if (c) {
+    if (telegramId) c.telegramId = telegramId;
+    saveContacts();
+    return c;
+  }
+  c = { publicKey: publicKey, name: name, telegramId: telegramId, createdAt: Date.now() };
+  contacts.push(c);
+  saveContacts();
+  return c;
+}
+
+function getContact(publicKey) {
+  return contacts.find(function(c) { return c.publicKey === publicKey; });
+}
+
+function getMessages(contactKey) {
+  return messages[contactKey] || [];
+}
+
+function addMsg(contactKey, msg) {
+  if (!messages[contactKey]) messages[contactKey] = [];
+  // Dedup
+  if (messages[contactKey].some(function(m) { return m.id === msg.id; })) return;
+  messages[contactKey].push(msg);
+  saveMessages();
+}
+
+function getLastMessage(contactKey) {
+  var msgs = messages[contactKey];
+  return msgs ? msgs[msgs.length - 1] : null;
+}
+
+function getUnreadCount(contactKey) {
+  return unreadCounts[contactKey] || 0;
+}
+
+function clearUnread(contactKey) {
+  unreadCounts[contactKey] = 0;
+}
+
+function updateMessageStatus(msgIds, newStatus) {
+  var statusOrder = { queued: 0, sent: 1, received: 2, read: 3 };
+  var changed = false;
+  for (var key in messages) {
+    messages[key].forEach(function(m) {
+      if (msgIds.indexOf(m.id) !== -1) {
+        var currentLevel = statusOrder[m.status] || 0;
+        var newLevel = statusOrder[newStatus] || 0;
+        if (newLevel > currentLevel) {
+          m.status = newStatus;
+          changed = true;
+        }
+      }
+    });
+  }
+  if (changed) {
+    saveMessages();
+    if (currentContactKey) renderMessages();
+  }
+}
+
+function deleteQueuedMessage(msgId) {
+  for (var key in messages) {
+    messages[key] = messages[key].filter(function(m) {
+      return !(m.id === msgId && m.status === 'queued');
+    });
+  }
+  saveMessages();
+  if (currentContactKey) renderMessages();
+}
+
+function getUnackedIncomingIds(contactKey) {
+  var msgs = messages[contactKey] || [];
+  return msgs.filter(function(m) { return m.direction === 'in' && !m.ackSent; }).map(function(m) { return m.id; });
+}
+
+function markAckSent(contactKey, ids) {
+  var msgs = messages[contactKey] || [];
+  msgs.forEach(function(m) {
+    if (ids.indexOf(m.id) !== -1) m.ackSent = true;
+  });
+  saveMessages();
+}
+
+// ── Voice recording (Web Audio API) ──────────────────────────────────────
+
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingStartTime = 0;
+let recordingInterval = null;
+let currentAudio = null;
+let currentPlayingId = null;
+
+// ── Init ─────────────────────────────────────────────────────────────────
+
+var isNew = initKeys();
+var myName = keyToName(getPublicKey());
+document.getElementById('myNameDisplay').textContent = myName;
+
+// Recalculate unread counts
+for (var ck in messages) {
+  var unread = 0;
+  messages[ck].forEach(function(m) { if (m.direction === 'in' && m.unread) unread++; });
+  unreadCounts[ck] = unread;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function showToast(msg) {
+  var toast = document.getElementById('copyToast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 2000);
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+function statusTickHtml(status) {
+  if (!status || status === 'queued') return '<span class="tick clock">&#9675;</span>';
+  if (status === 'sent') return '<span class="tick grey">&#10003;</span>';
+  if (status === 'received') return '<span class="tick grey">&#10003;&#10003;</span>';
+  return '<span class="tick blue">&#10003;&#10003;</span>';
+}
+
+// ── Chat List ────────────────────────────────────────────────────────────
+
+function renderChatList() {
+  var list = document.getElementById('chatList');
+  var empty = document.getElementById('emptyState');
+
+  if (contacts.length === 0) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+
+  var sorted = contacts.slice().sort(function(a, b) {
+    var la = getLastMessage(a.publicKey);
+    var lb = getLastMessage(b.publicKey);
+    return (lb ? lb.timestamp : b.createdAt) - (la ? la.timestamp : a.createdAt);
+  });
+
+  list.innerHTML = sorted.map(function(c) {
+    var last = getLastMessage(c.publicKey);
+    var unread = getUnreadCount(c.publicKey);
+    var preview = 'No messages yet';
+    var timeStr = '';
+    if (last) {
+      timeStr = formatTime(last.timestamp);
+      if (last.isIntroduction) preview = 'Contact card received';
+      else if (last.voice) preview = last.direction === 'out' ? 'You: [voice]' : '[voice]';
+      else if (last.video) preview = last.direction === 'out' ? 'You: [video]' : '[video]';
+      else if (last.text) preview = last.direction === 'out' ? 'You: ' + last.text : last.text;
+      else if (last.image) preview = last.direction === 'out' ? 'You: [image]' : '[image]';
+    }
+    var unreadHtml = unread > 0 ? '<div class="unread-badge">' + unread + '</div>' : '';
+    return '<div class="contact-row" onclick="openChat(\'' + escapeHtml(c.publicKey) + '\')">' +
+      '<div class="avatar"><span class="avatar-text">' + escapeHtml(c.name[0]) + '</span></div>' +
+      '<div class="contact-info"><div class="contact-top">' +
+      '<span class="contact-name">' + escapeHtml(c.name) + '</span>' +
+      (timeStr ? '<span class="contact-time">' + timeStr + '</span>' : '') +
+      '</div><div class="contact-bottom">' +
+      '<span class="contact-preview">' + escapeHtml(preview) + '</span>' +
+      unreadHtml +
+      '</div></div></div>';
+  }).join('');
+}
+
+renderChatList();
+
+// ── Chat Screen ──────────────────────────────────────────────────────────
+
+function openChat(publicKey) {
+  currentContactKey = publicKey;
+  var contact = getContact(publicKey);
+  var name = contact ? contact.name : keyToName(publicKey);
+
+  document.getElementById('chatTitle').textContent = name;
+  document.getElementById('chatAvatarLetter').textContent = name[0];
+  document.getElementById('chatSubtitle').textContent = 'offline';
+  pendingTag = generateTag();
+  document.getElementById('composeTag').textContent = myName + ' \u2014 ' + pendingTag;
+  document.getElementById('composeInput').value = '';
+  imageBase64 = null;
+  document.getElementById('imagePreviewBar').style.display = 'none';
+  updateComposeUI();
+
+  // Clear unread
+  clearUnread(publicKey);
+  var msgs = messages[publicKey] || [];
+  msgs.forEach(function(m) { if (m.direction === 'in') m.unread = false; });
+  saveMessages();
+
+  // Send read acks
+  if (contact && contact.telegramId) {
+    var ids = getUnackedIncomingIds(publicKey);
+    if (ids.length > 0) {
+      sendReadAck(ids, contact.telegramId);
+      markAckSent(publicKey, ids);
+    }
+  }
+
+  renderMessages();
+  showScreen('chatScreen');
+}
+
+function backToList() {
+  currentContactKey = null;
+  stopVoicePlayback();
+  renderChatList();
+  showScreen('chatListScreen');
+}
+
+function renderMessages() {
+  var inner = document.getElementById('messageListInner');
+  var msgs = getMessages(currentContactKey);
+  var contact = getContact(currentContactKey);
+  var displayName = contact ? contact.name : keyToName(currentContactKey);
+
+  inner.innerHTML = msgs.map(function(m) {
+    var isOut = m.direction === 'out';
+    var isQueued = m.status === 'queued';
+    var dir = isOut ? 'out' : 'in';
+    var bubbleClass = 'bubble ' + dir + (isQueued ? ' queued' : '');
+    var content = '';
+
+    if (!isOut) {
+      content += '<div class="sender-name">' + escapeHtml(displayName) + '</div>';
+    }
+
+    if (m.isIntroduction) {
+      content += '<div class="intro-label-msg">Contact card received</div>';
+    }
+
+    // Voice
+    if (m.voice) {
+      var isPlaying = currentPlayingId === m.id;
+      var playIcon = isPlaying
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#8696A0"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#8696A0"><polygon points="6,4 20,12 6,20"/></svg>';
+      content += '<div class="voice-row">' +
+        '<button class="voice-play-btn" onclick="toggleVoice(\'' + m.id + '\')">' + playIcon + '</button>' +
+        '<div class="voice-bar-bg"><div class="voice-bar-fill" id="voiceFill_' + m.id + '"></div></div>' +
+        '</div>';
+    }
+
+    // Image
+    if (m.image) {
+      content += '<div class="media-thumb"><img src="data:image/jpeg;base64,' + m.image + '" /></div>';
+    }
+
+    // Video
+    if (m.video) {
+      content += '<div class="media-thumb">' +
+        '<img src="data:image/jpeg;base64,' + m.video + '" />' +
+        '<div class="video-overlay"><svg class="video-play-icon" width="44" height="44" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.45)" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/><polygon points="10,7 18,12 10,17" fill="rgba(255,255,255,0.9)"/></svg></div>' +
+        '</div>';
+    }
+
+    // Text
+    if (m.text && !m.isIntroduction) {
+      content += '<div class="msg-text">' + escapeHtml(m.text) + '</div>';
+    }
+
+    // Meta
+    content += '<div class="msg-meta">' +
+      '<span class="msg-time ' + dir + '">' + formatTime(m.timestamp) + '</span>' +
+      (isOut ? statusTickHtml(m.status) : '') +
+      '</div>';
+
+    var longPress = isQueued ? ' oncontextmenu="showContextMenu(event, \'' + m.id + '\')"' : '';
+
+    return '<div class="msg-row ' + dir + '">' +
+      '<div class="' + bubbleClass + '"' + longPress + '>' + content + '</div>' +
+      '</div>';
+  }).join('');
+
+  var listEl = document.getElementById('messageList');
+  listEl.scrollTop = listEl.scrollHeight;
+}
+
+// ── Compose UI ───────────────────────────────────────────────────────────
+
+function updateComposeUI() {
+  var text = document.getElementById('composeInput').value.trim();
+  var hasContent = text || imageBase64;
+  document.getElementById('sendBtn').style.display = hasContent ? 'flex' : 'none';
+  document.getElementById('sendBtn').disabled = !hasContent;
+  document.getElementById('micBtn').style.display = hasContent ? 'none' : 'flex';
+}
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ── Send text/image ──────────────────────────────────────────────────────
+
+function handleSend() {
+  var text = document.getElementById('composeInput').value.trim();
+  var hasText = !!text;
+  var hasImage = !!imageBase64;
+  if (!hasText && !hasImage) return;
+  if (!currentContactKey) return;
+
+  var contentType, body;
+  if (hasText && hasImage) {
+    contentType = 'mixed';
+    body = JSON.stringify({ text: text, image: imageBase64 });
+  } else if (hasImage) {
+    contentType = 'image';
+    body = imageBase64;
+  } else {
+    contentType = 'text';
+    body = text;
+  }
+
+  var innerJson = packInnerPayload(getPublicKey(), contentType, body);
+  var encrypted = encryptMessage(innerJson, currentContactKey);
+
+  var file = {
+    tag: pendingTag, nohack: '3', id: generateId(),
+    payload: encrypted, recipient: currentContactKey, senderPublicKey: getPublicKey()
+  };
+
+  var contact = getContact(currentContactKey);
+  if (contact && contact.telegramId) {
+    file.recipientTelegramId = contact.telegramId;
+  }
+  if (telegramUsername) {
+    file.relayTelegramId = telegramUsername;
+  }
+
+  var json = JSON.stringify(file);
+  navigator.clipboard.writeText(json).then(function() {
+    showToast('Copied \u2014 paste into Telegram');
+  }).catch(function() {
+    showToast('Could not copy \u2014 check browser permissions');
+  });
+
+  var msg = {
+    id: file.id, direction: 'out', contentType: contentType,
+    tag: pendingTag, timestamp: Date.now(), status: 'queued'
+  };
+  if (hasText) msg.text = text;
+  if (hasImage) msg.image = imageBase64;
+
+  addMsg(currentContactKey, msg);
+
+  // Clear
+  document.getElementById('composeInput').value = '';
+  document.getElementById('composeInput').style.height = 'auto';
+  imageBase64 = null;
+  document.getElementById('imagePreviewBar').style.display = 'none';
+  pendingTag = generateTag();
+  document.getElementById('composeTag').textContent = myName + ' \u2014 ' + pendingTag;
+  updateComposeUI();
+  renderMessages();
+}
+
+// ── Image attachment ─────────────────────────────────────────────────────
+
+function handleAttach() {
+  document.getElementById('fileInput').click();
+}
+
+function handleFileSelected(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // Resize image
+    var img = new Image();
+    img.onload = function() {
+      var maxDim = 1200;
+      var w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      imageBase64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+      document.getElementById('previewThumbImg').src = 'data:image/jpeg;base64,' + imageBase64;
+      document.getElementById('imagePreviewBar').style.display = 'flex';
+      updateComposeUI();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function clearImage() {
+  imageBase64 = null;
+  document.getElementById('imagePreviewBar').style.display = 'none';
+  updateComposeUI();
+}
+
+// ── Voice recording (MediaRecorder) ──────────────────────────────────────
+
+async function startRecording() {
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorder.ondataavailable = function(e) { audioChunks.push(e.data); };
+    mediaRecorder.start();
+    recordingStartTime = Date.now();
+    document.getElementById('recordingBar').style.display = 'flex';
+    document.getElementById('composeBarEl').style.display = 'none';
+    updateRecordingTime();
+    recordingInterval = setInterval(updateRecordingTime, 1000);
+  } catch (err) {
+    showToast('Microphone access denied');
+  }
+}
+
+function updateRecordingTime() {
+  var secs = Math.floor((Date.now() - recordingStartTime) / 1000);
+  document.getElementById('recordingTime').textContent =
+    Math.floor(secs / 60) + ':' + (secs % 60).toString().padStart(2, '0');
+}
+
+function cancelRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
+  }
+  clearInterval(recordingInterval);
+  document.getElementById('recordingBar').style.display = 'none';
+  document.getElementById('composeBarEl').style.display = 'flex';
+  mediaRecorder = null;
+}
+
+function stopAndSendVoice() {
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+  mediaRecorder.onstop = function() {
+    clearInterval(recordingInterval);
+    document.getElementById('recordingBar').style.display = 'none';
+    document.getElementById('composeBarEl').style.display = 'flex';
+    mediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
+
+    var blob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+    var reader = new FileReader();
+    reader.onload = function() {
+      var base64 = reader.result.split(',')[1];
+      sendVoiceMessage(base64);
+    };
+    reader.readAsDataURL(blob);
+    mediaRecorder = null;
+  };
+  mediaRecorder.stop();
+}
+
+function sendVoiceMessage(base64Audio) {
+  if (!currentContactKey) return;
+
+  var innerJson = packInnerPayload(getPublicKey(), 'voice', base64Audio);
+  var encrypted = encryptMessage(innerJson, currentContactKey);
+
+  var tag = generateTag();
+  var file = {
+    tag: tag, nohack: '3', id: generateId(),
+    payload: encrypted, recipient: currentContactKey, senderPublicKey: getPublicKey()
+  };
+
+  var contact = getContact(currentContactKey);
+  if (contact && contact.telegramId) file.recipientTelegramId = contact.telegramId;
+  if (telegramUsername) file.relayTelegramId = telegramUsername;
+
+  var json = JSON.stringify(file);
+  navigator.clipboard.writeText(json).then(function() {
+    showToast('Voice copied \u2014 paste into Telegram');
+  }).catch(function() {});
+
+  addMsg(currentContactKey, {
+    id: file.id, direction: 'out', contentType: 'voice',
+    voice: base64Audio, tag: tag, timestamp: Date.now(), status: 'queued'
+  });
+
+  pendingTag = generateTag();
+  document.getElementById('composeTag').textContent = myName + ' \u2014 ' + pendingTag;
+  renderMessages();
+}
+
+// ── Voice playback ───────────────────────────────────────────────────────
+
+function toggleVoice(msgId) {
+  if (currentPlayingId === msgId) {
+    stopVoicePlayback();
+    return;
+  }
+  stopVoicePlayback();
+
+  // Find voice data
+  var msgs = getMessages(currentContactKey);
+  var msg = msgs.find(function(m) { return m.id === msgId; });
+  if (!msg || !msg.voice) return;
+
+  currentPlayingId = msgId;
+  var audio = new Audio('data:audio/webm;codecs=opus;base64,' + msg.voice);
+  currentAudio = audio;
+
+  audio.ontimeupdate = function() {
+    if (audio.duration > 0) {
+      var pct = (audio.currentTime / audio.duration) * 100;
+      var el = document.getElementById('voiceFill_' + msgId);
+      if (el) el.style.width = pct + '%';
+    }
+  };
+  audio.onended = function() {
+    stopVoicePlayback();
+    renderMessages();
+  };
+  audio.play().catch(function() { stopVoicePlayback(); });
+  renderMessages();
+}
+
+function stopVoicePlayback() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  currentPlayingId = null;
+}
+
+// ── Acks ─────────────────────────────────────────────────────────────────
+
+function sendReadAck(ids, telegramId) {
+  var ack = createAck('read', ids);
+  ack.recipientTelegramId = telegramId;
+  if (telegramUsername) ack.relayTelegramId = telegramUsername;
+  // Best effort: copy to clipboard silently (won't overwrite if user is composing)
+  // In web version, acks are passive — they're sent when pasting back
+}
+
+// ── Context menu for deleting queued messages ────────────────────────────
+
+function showContextMenu(event, msgId) {
+  event.preventDefault();
+  contextMessageId = msgId;
+  var menu = document.getElementById('contextMenu');
+  var rect = document.getElementById('app').getBoundingClientRect();
+  menu.style.left = (event.clientX - rect.left) + 'px';
+  menu.style.top = (event.clientY - rect.top) + 'px';
+  menu.classList.add('active');
+}
+
+function deleteContextMessage() {
+  if (contextMessageId) {
+    deleteQueuedMessage(contextMessageId);
+    contextMessageId = null;
+  }
+  document.getElementById('contextMenu').classList.remove('active');
+}
+
+document.addEventListener('click', function() {
+  document.getElementById('contextMenu').classList.remove('active');
+});
+
+// ── Share Contact ────────────────────────────────────────────────────────
+
+function handleShareContact() {
+  var intro = {
+    tag: generateTag(), nohack: '3', id: generateId(),
+    type: 'introduction', senderPublicKey: getPublicKey()
+  };
+  if (telegramUsername) {
+    intro.relayTelegramId = telegramUsername;
+  }
+  var json = JSON.stringify(intro);
+  navigator.clipboard.writeText(json).then(function() {
+    var banner = document.getElementById('sentBanner');
+    document.getElementById('sentTag').textContent = intro.tag;
+    banner.style.display = 'flex';
+    setTimeout(function() { banner.style.display = 'none'; }, 5000);
+  }).catch(function() {
+    showToast('Could not copy \u2014 check browser permissions');
+  });
+}
+
+// ── Paste overlay ────────────────────────────────────────────────────────
+
+function openPasteOverlay() {
+  document.getElementById('pasteInput').value = '';
+  document.getElementById('pasteOverlay').classList.add('active');
+  document.getElementById('pasteInput').focus();
+}
+
+function closePasteOverlay() {
+  document.getElementById('pasteOverlay').classList.remove('active');
+}
+
+function handlePasteOpen() {
+  var raw = document.getElementById('pasteInput').value.trim();
+  if (!raw) return;
+
+  // Unwrap relay protocol wrapper
+  try {
+    var wrapper = JSON.parse(raw);
+    if (wrapper.cmd && wrapper.payload && !wrapper.nohack) {
+      raw = wrapper.payload;
+    }
+  } catch(e) {}
+
+  var file;
+  try {
+    file = JSON.parse(raw.trim());
+    if (file.nohack !== '3' || !file.id || !file.tag) {
+      showToast('Invalid .nohack v3 format');
+      return;
+    }
+  } catch(e) {
+    showToast('Invalid JSON');
+    return;
+  }
+
+  closePasteOverlay();
+
+  // ── Ack ──
+  if (file.type === 'ack' && file.ackType && file.ackIds) {
+    updateMessageStatus(file.ackIds, file.ackType === 'read' ? 'read' : 'received');
+    showToast('Ack processed: ' + file.ackType);
+    return;
+  }
+
+  // ── Introduction ──
+  if (file.type === 'introduction' && file.senderPublicKey) {
+    if (file.senderPublicKey === getPublicKey()) {
+      showToast('That is your own contact card');
+      return;
+    }
+    var name = keyToName(file.senderPublicKey);
+    addOrUpdateContact(file.senderPublicKey, name, file.relayTelegramId);
+    addMsg(file.senderPublicKey, {
+      id: file.id, direction: 'in', contentType: 'text',
+      text: 'Contact card received', tag: file.tag,
+      timestamp: Date.now(), isIntroduction: true, unread: true
+    });
+    unreadCounts[file.senderPublicKey] = (unreadCounts[file.senderPublicKey] || 0) + 1;
+    renderChatList();
+    openChat(file.senderPublicKey);
+    return;
+  }
+
+  // ── Encrypted message ──
+  if (file.payload) {
+    try {
+      var innerJson = decryptMessage(file.payload);
+      var inner = unpackInnerPayload(innerJson);
+      var name = keyToName(inner.senderPublicKey);
+      addOrUpdateContact(inner.senderPublicKey, name, file.relayTelegramId);
+
+      var msg = {
+        id: file.id, direction: 'in', contentType: inner.contentType,
+        tag: file.tag, timestamp: Date.now(), unread: true
+      };
+
+      if (inner.contentType === 'text') {
+        msg.text = inner.body;
+      } else if (inner.contentType === 'image') {
+        msg.image = inner.body;
+      } else if (inner.contentType === 'voice') {
+        msg.voice = inner.body;
+      } else if (inner.contentType === 'video') {
+        msg.video = inner.body;
+      } else if (inner.contentType === 'mixed') {
+        try {
+          var mixed = JSON.parse(inner.body);
+          msg.text = mixed.text;
+          msg.image = mixed.image;
+        } catch(e) {}
+      }
+
+      addMsg(inner.senderPublicKey, msg);
+
+      // Track unread if not currently viewing this contact
+      if (currentContactKey !== inner.senderPublicKey) {
+        unreadCounts[inner.senderPublicKey] = (unreadCounts[inner.senderPublicKey] || 0) + 1;
+      }
+
+      renderChatList();
+      openChat(inner.senderPublicKey);
+
+      // Send received ack
+      var contact = getContact(inner.senderPublicKey);
+      if (contact && contact.telegramId) {
+        var ack = createAck('received', [file.id]);
+        ack.recipientTelegramId = contact.telegramId;
+        if (telegramUsername) ack.relayTelegramId = telegramUsername;
+        // Auto-copy ack (user can paste it back)
+        // We don't auto-copy acks in web version to not overwrite clipboard
+      }
+    } catch (err) {
+      showToast(err.message);
+    }
+    return;
+  }
+
+  showToast('Unrecognized .nohack file');
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────
+
+function openSettings() {
+  document.getElementById('settingsName').textContent = myName;
+  document.getElementById('settingsKey').textContent = getPublicKey();
+  updateTgSettingsUI();
+  document.getElementById('settingsOverlay').classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('active');
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────────
+
+document.getElementById('composeInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleSend();
+  }
+});
+
+document.getElementById('pasteInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    handlePasteOpen();
+  }
+});
+
+if (isNew) {
+  showToast('New identity created \u2014 connect to relay in settings');
+}
+
+// ── Relay WebSocket Connection ────────────────────────────────────────
+// Connects to the desktop relay server which handles Telegram via GramJS
+
+var relayUrl = localStorage.getItem('@nohack_web_relay_url') || 'ws://127.0.0.1:19847';
+var relayWs = null;
+var relayConnected = false;
+var relayTgStatus = 'offline';
+var relayTgId = '';
+
+function updateRelayStatus(connected, tgSt, tgId) {
+  relayConnected = connected;
+  relayTgStatus = tgSt || 'offline';
+  relayTgId = tgId || '';
+  var dot = document.getElementById('listConnDot');
+  var lbl = document.getElementById('listConnLabel');
+  if (connected && relayTgStatus === 'online') {
+    dot.style.background = '#4CAF50';
+    lbl.textContent = relayTgId || 'Connected';
+    telegramUsername = relayTgId.replace(/^@/, '');
+    localStorage.setItem('@nohack_web_telegram', telegramUsername);
+  } else if (connected) {
+    dot.style.background = '#FFC107';
+    lbl.textContent = 'Relay (no TG)';
+  } else {
+    dot.style.background = '#E53935';
+    lbl.textContent = 'Offline';
+  }
+}
+
+function updateTgSettingsUI() {
+  var off = document.getElementById('tgSettingsOffline');
+  var on = document.getElementById('tgSettingsOnline');
+  if (relayConnected) {
+    off.style.display = 'none';
+    on.style.display = 'block';
+    var dot = document.getElementById('relaySettingsDot');
+    var label = document.getElementById('relaySettingsLabel');
+    var info = document.getElementById('relaySettingsInfo');
+    if (relayTgStatus === 'online') {
+      dot.style.background = '#4CAF50';
+      label.textContent = relayTgId || 'Connected';
+      label.style.color = '#4CAF50';
+      info.textContent = 'Messages are sent and received via Telegram automatically.';
+    } else {
+      dot.style.background = '#FFC107';
+      label.textContent = 'Connected to relay';
+      label.style.color = '#FFC107';
+      info.textContent = 'Telegram not logged in. Open the relay UI to log in.';
+    }
+  } else {
+    off.style.display = 'block';
+    on.style.display = 'none';
+    var input = document.getElementById('relayUrlInput');
+    var btn = document.getElementById('relayConnBtn');
+    input.value = relayUrl;
+    btn.textContent = 'Connect to Relay';
+    btn.disabled = false;
+  }
+}
+
+function relaySend(obj) {
+  if (relayWs && relayWs.readyState === 1) {
+    relayWs.send(JSON.stringify(obj));
+  }
+}
+
+function relayConnAction() {
+  var btn = document.getElementById('relayConnBtn');
+  var input = document.getElementById('relayUrlInput');
+  var errEl = document.getElementById('relayConnError');
+  errEl.textContent = '';
+
+  var url = input.value.trim();
+  if (!url) url = 'ws://127.0.0.1:19847';
+  if (!url.startsWith('ws')) url = 'ws://' + url;
+  btn.disabled = true;
+  btn.textContent = 'Connecting...';
+  relayUrl = url;
+  localStorage.setItem('@nohack_web_relay_url', url);
+  connectRelay(url);
+}
+
+function relayDisconnect() {
+  relayUrl = '';
+  localStorage.removeItem('@nohack_web_relay_url');
+  if (relayWs) { try { relayWs.close(); } catch(e) {} relayWs = null; }
+  relayConnected = false;
+  updateRelayStatus(false);
+  updateTgSettingsUI();
+}
+
+// Telegram login/logout handled through relay UI only
+
+function connectRelay(url) {
+  if (relayWs) { try { relayWs.close(); } catch(e) {} }
+  try { relayWs = new WebSocket(url); } catch(e) { updateRelayStatus(false); return; }
+
+  relayWs.onopen = function() {
+    relayConnected = true;
+    updateTgSettingsUI();
+  };
+
+  relayWs.onmessage = function(e) {
+    try { handleRelayMessage(JSON.parse(e.data)); } catch(err) {}
+  };
+
+  relayWs.onclose = function() {
+    relayConnected = false;
+    updateRelayStatus(false);
+    if (relayUrl) setTimeout(function() { connectRelay(relayUrl); }, 3000);
+  };
+
+  relayWs.onerror = function() {
+    document.getElementById('relayConnError').textContent = 'Cannot connect to relay';
+    document.getElementById('relayConnBtn').disabled = false;
+    document.getElementById('relayConnBtn').textContent = 'Connect to Relay';
+  };
+}
+
+function handleRelayMessage(msg) {
+  switch (msg.type) {
+    case 'state':
+      updateRelayStatus(true, msg.telegramStatus, msg.telegramId);
+      updateTgSettingsUI();
+      break;
+    case 'telegram-step':
+    case 'telegram-error':
+      // Telegram login handled through relay UI only
+      break;
+    case 'nohack-incoming':
+      if (msg.data) processIncomingFile(msg.data);
+      break;
+  }
+}
+
+function processIncomingFile(file) {
+  if (file.senderPublicKey === getPublicKey()) return;
+
+  if (file.type === 'ack' && file.ackType && file.ackIds) {
+    updateMessageStatus(file.ackIds, file.ackType === 'read' ? 'read' : 'received');
+    return;
+  }
+
+  if (file.type === 'introduction' && file.senderPublicKey) {
+    var name = keyToName(file.senderPublicKey);
+    addOrUpdateContact(file.senderPublicKey, name, file.relayTelegramId);
+    addMsg(file.senderPublicKey, {
+      id: file.id, direction: 'in', contentType: 'text',
+      text: 'Contact card received', tag: file.tag,
+      timestamp: Date.now(), isIntroduction: true, unread: true
+    });
+    unreadCounts[file.senderPublicKey] = (unreadCounts[file.senderPublicKey] || 0) + 1;
+    renderChatList();
+    if (currentContactKey === file.senderPublicKey) renderMessages();
+    return;
+  }
+
+  if (file.payload) {
+    try {
+      var innerJson = decryptMessage(file.payload);
+      var inner = unpackInnerPayload(innerJson);
+      var name = keyToName(inner.senderPublicKey);
+      addOrUpdateContact(inner.senderPublicKey, name, file.relayTelegramId);
+
+      var msg = {
+        id: file.id, direction: 'in', contentType: inner.contentType,
+        tag: file.tag, timestamp: Date.now(), unread: true
+      };
+
+      if (inner.contentType === 'text') msg.text = inner.body;
+      else if (inner.contentType === 'image') msg.image = inner.body;
+      else if (inner.contentType === 'voice') msg.voice = inner.body;
+      else if (inner.contentType === 'video') msg.video = inner.body;
+      else if (inner.contentType === 'mixed') {
+        try { var mx = JSON.parse(inner.body); msg.text = mx.text; msg.image = mx.image; } catch(e) {}
+      }
+
+      addMsg(inner.senderPublicKey, msg);
+
+      if (currentContactKey !== inner.senderPublicKey) {
+        unreadCounts[inner.senderPublicKey] = (unreadCounts[inner.senderPublicKey] || 0) + 1;
+      } else {
+        msg.unread = false;
+        saveMessages();
+        renderMessages();
+      }
+      renderChatList();
+
+      var contact = getContact(inner.senderPublicKey);
+      if (contact && contact.telegramId) {
+        var ack = createAck('received', [file.id]);
+        ack.recipientTelegramId = contact.telegramId;
+        if (telegramUsername) ack.relayTelegramId = telegramUsername;
+        relaySend({ cmd: 'nohack-send', payload: JSON.stringify(ack) });
+      }
+    } catch (err) {
+      console.error('Decrypt failed:', err.message);
+    }
+  }
+}
+
+function sendViaRelay(fileObj) {
+  if (relayConnected && relayTgStatus === 'online') {
+    relaySend({ cmd: 'nohack-send', payload: JSON.stringify(fileObj) });
+    return true;
+  }
+  return false;
+}
+
+var _origHandleSend = handleSend;
+handleSend = function() {
+  var text = document.getElementById('composeInput').value.trim();
+  var hasText = !!text;
+  var hasImage = !!imageBase64;
+  if (!hasText && !hasImage) return;
+  if (!currentContactKey) return;
+
+  var contentType, body;
+  if (hasText && hasImage) { contentType = 'mixed'; body = JSON.stringify({ text: text, image: imageBase64 }); }
+  else if (hasImage) { contentType = 'image'; body = imageBase64; }
+  else { contentType = 'text'; body = text; }
+
+  var innerJson = packInnerPayload(getPublicKey(), contentType, body);
+  var encrypted = encryptMessage(innerJson, currentContactKey);
+
+  var file = {
+    tag: pendingTag, nohack: '3', id: generateId(),
+    payload: encrypted, recipient: currentContactKey, senderPublicKey: getPublicKey()
+  };
+
+  var contact = getContact(currentContactKey);
+  if (contact && contact.telegramId) file.recipientTelegramId = contact.telegramId;
+  if (telegramUsername) file.relayTelegramId = telegramUsername;
+
+  var msg = {
+    id: file.id, direction: 'out', contentType: contentType,
+    tag: pendingTag, timestamp: Date.now(), status: 'queued'
+  };
+  if (hasText) msg.text = text;
+  if (hasImage) msg.image = imageBase64;
+  addMsg(currentContactKey, msg);
+
+  if (sendViaRelay(file)) {
+    updateMessageStatus([file.id], 'sent');
+  } else {
+    navigator.clipboard.writeText(JSON.stringify(file)).then(function() {
+      showToast('Copied \u2014 paste into Telegram');
+    }).catch(function(){});
+  }
+
+  document.getElementById('composeInput').value = '';
+  document.getElementById('composeInput').style.height = 'auto';
+  imageBase64 = null;
+  document.getElementById('imagePreviewBar').style.display = 'none';
+  pendingTag = generateTag();
+  document.getElementById('composeTag').textContent = myName + ' \u2014 ' + pendingTag;
+  updateComposeUI();
+  renderMessages();
+};
+
+var _origSendVoice = sendVoiceMessage;
+sendVoiceMessage = function(base64Audio) {
+  if (!currentContactKey) return;
+
+  var innerJson = packInnerPayload(getPublicKey(), 'voice', base64Audio);
+  var encrypted = encryptMessage(innerJson, currentContactKey);
+
+  var tag = generateTag();
+  var file = {
+    tag: tag, nohack: '3', id: generateId(),
+    payload: encrypted, recipient: currentContactKey, senderPublicKey: getPublicKey()
+  };
+
+  var contact = getContact(currentContactKey);
+  if (contact && contact.telegramId) file.recipientTelegramId = contact.telegramId;
+  if (telegramUsername) file.relayTelegramId = telegramUsername;
+
+  addMsg(currentContactKey, {
+    id: file.id, direction: 'out', contentType: 'voice',
+    voice: base64Audio, tag: tag, timestamp: Date.now(), status: 'queued'
+  });
+
+  if (sendViaRelay(file)) {
+    updateMessageStatus([file.id], 'sent');
+  } else {
+    navigator.clipboard.writeText(JSON.stringify(file)).then(function() {
+      showToast('Voice copied \u2014 paste into Telegram');
+    }).catch(function(){});
+  }
+
+  pendingTag = generateTag();
+  document.getElementById('composeTag').textContent = myName + ' \u2014 ' + pendingTag;
+  renderMessages();
+};
+
+var _origShareContact = handleShareContact;
+handleShareContact = function() {
+  var intro = {
+    tag: generateTag(), nohack: '3', id: generateId(),
+    type: 'introduction', senderPublicKey: getPublicKey()
+  };
+  if (telegramUsername) intro.relayTelegramId = telegramUsername;
+
+  var banner = document.getElementById('sentBanner');
+  document.getElementById('sentTag').textContent = intro.tag;
+
+  if (sendViaRelay(intro)) {
+    banner.style.display = 'flex';
+    setTimeout(function() { banner.style.display = 'none'; }, 5000);
+    showToast('Contact card sent via Telegram');
+  } else {
+    navigator.clipboard.writeText(JSON.stringify(intro)).then(function() {
+      banner.style.display = 'flex';
+      setTimeout(function() { banner.style.display = 'none'; }, 5000);
+    }).catch(function() {
+      showToast('Could not copy');
+    });
+  }
+};
+
+if (relayUrl) {
+  connectRelay(relayUrl);
+}
+
+// ── Kill switch ─────────────────────────────────────────────────────────────
+(function() {
+  var track = document.getElementById('killTrack');
+  var thumb = document.getElementById('killThumb');
+  var label = document.getElementById('killLabel');
+  var dragging = false, startX = 0, activated = false;
+
+  thumb.addEventListener('pointerdown', function(e) {
+    if (activated) return;
+    dragging = true;
+    startX = e.clientX;
+    thumb.setPointerCapture(e.pointerId);
+    thumb.classList.remove('snap-back');
+  });
+
+  thumb.addEventListener('pointermove', function(e) {
+    if (!dragging) return;
+    var maxX = track.offsetWidth - 44;
+    var dx = Math.max(0, Math.min(e.clientX - startX, maxX));
+    thumb.style.left = dx + 'px';
+    var pct = dx / maxX;
+    track.style.background = 'rgba(229,57,53,' + (0.15 + pct * 0.45).toFixed(2) + ')';
+  });
+
+  thumb.addEventListener('pointerup', function(e) {
+    if (!dragging) return;
+    dragging = false;
+    var maxX = track.offsetWidth - 44;
+    var dx = parseInt(thumb.style.left) || 0;
+    if (dx >= maxX * 0.9) {
+      activated = true;
+      thumb.style.left = maxX + 'px';
+      label.textContent = 'RESETTING...';
+      factoryReset();
+      setTimeout(function() {
+        activated = false;
+        thumb.classList.add('snap-back');
+        thumb.style.left = '0px';
+        track.style.background = '';
+        label.textContent = 'SLIDE TO RESET';
+      }, 1500);
+    } else {
+      thumb.classList.add('snap-back');
+      thumb.style.left = '0px';
+      track.style.background = '';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

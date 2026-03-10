@@ -1,0 +1,208 @@
+diff --git a/node_modules/telegram/CryptoFile.js b/node_modules/telegram/CryptoFile.js
+index f26acf7..483cb40 100644
+--- a/node_modules/telegram/CryptoFile.js
++++ b/node_modules/telegram/CryptoFile.js
+@@ -23,5 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
+     return result;
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+-const crypto = __importStar(require("crypto"));
++// Use GramJS built-in browser crypto instead of Node's crypto module
++// to avoid the massive crypto-browserify dependency tree that crashes in Hermes
++const crypto = __importStar(require("./crypto/crypto"));
+ exports.default = crypto;
+diff --git a/node_modules/telegram/Helpers.js b/node_modules/telegram/Helpers.js
+index c667307..9400521 100644
+--- a/node_modules/telegram/Helpers.js
++++ b/node_modules/telegram/Helpers.js
+@@ -423,7 +423,26 @@ function crc32(buf) {
+     if (!crcTable) {
+         crcTable = makeCRCTable();
+     }
+-    if (!Buffer.isBuffer(buf)) {
++    // Handle strings directly with pure-JS UTF-8 encoding (no Buffer needed)
++    if (typeof buf === 'string') {
++        const bytes = [];
++        for (let i = 0; i < buf.length; i++) {
++            let code = buf.charCodeAt(i);
++            if (code < 0x80) {
++                bytes.push(code);
++            } else if (code < 0x800) {
++                bytes.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
++            } else if (code >= 0xD800 && code < 0xDC00) {
++                i++;
++                const lo = buf.charCodeAt(i);
++                const cp = 0x10000 + (((code & 0x3FF) << 10) | (lo & 0x3FF));
++                bytes.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3F), 0x80 | ((cp >> 6) & 0x3F), 0x80 | (cp & 0x3F));
++            } else {
++                bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
++            }
++        }
++        buf = bytes;
++    } else if (typeof Buffer !== 'undefined' && !Buffer.isBuffer(buf)) {
+         buf = Buffer.from(buf);
+     }
+     let crc = -1;
+diff --git a/node_modules/telegram/client/telegramBaseClient.js b/node_modules/telegram/client/telegramBaseClient.js
+index d9af669..917cf35 100644
+--- a/node_modules/telegram/client/telegramBaseClient.js
++++ b/node_modules/telegram/client/telegramBaseClient.js
+@@ -43,7 +43,7 @@ const clientParamsDefault = {
+     langCode: "en",
+     systemLangCode: "en",
+     _securityChecks: true,
+-    useWSS: platform_1.isBrowser ? window.location.protocol == "https:" : false,
++    useWSS: platform_1.isBrowser ? (typeof window.location !== "undefined" && window.location.protocol == "https:") : false,
+     testServers: false,
+ };
+ class TelegramBaseClient {
+diff --git a/node_modules/telegram/crypto/crypto.js b/node_modules/telegram/crypto/crypto.js
+index 0df5018..4439a39 100644
+--- a/node_modules/telegram/crypto/crypto.js
++++ b/node_modules/telegram/crypto/crypto.js
+@@ -78,39 +78,34 @@ function createCipheriv(algorithm, key, iv) {
+ }
+ function randomBytes(count) {
+     const bytes = new Uint8Array(count);
+-    crypto.getRandomValues(bytes);
++    if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
++        globalThis.crypto.getRandomValues(bytes);
++    } else if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
++        crypto.getRandomValues(bytes);
++    } else {
++        // Fallback for environments without Web Crypto
++        for (let i = 0; i < count; i++) {
++            bytes[i] = Math.floor(Math.random() * 256);
++        }
++    }
+     return bytes;
+ }
++// Pure JS Hash using create-hash (no crypto.subtle needed)
+ class Hash {
+     constructor(algorithm) {
+         this.algorithm = algorithm;
++        this._hash = require('create-hash')(algorithm);
+     }
+     update(data) {
+-        //We shouldn't be needing new Uint8Array but it doesn't
+-        //work without it
+-        this.data = new Uint8Array(data);
++        this._hash.update(data);
+     }
+-    async digest() {
+-        if (this.data) {
+-            if (this.algorithm === "sha1") {
+-                return Buffer.from(await self.crypto.subtle.digest("SHA-1", this.data));
+-            }
+-            else if (this.algorithm === "sha256") {
+-                return Buffer.from(await self.crypto.subtle.digest("SHA-256", this.data));
+-            }
+-        }
+-        return Buffer.alloc(0);
++    digest() {
++        return Buffer.from(this._hash.digest());
+     }
+ }
+ exports.Hash = Hash;
+-async function pbkdf2Sync(password, salt, iterations, ...args) {
+-    const passwordKey = await crypto.subtle.importKey("raw", password, { name: "PBKDF2" }, false, ["deriveBits"]);
+-    return Buffer.from(await crypto.subtle.deriveBits({
+-        name: "PBKDF2",
+-        hash: "SHA-512",
+-        salt,
+-        iterations,
+-    }, passwordKey, 512));
++function pbkdf2Sync(password, salt, iterations, keylen, digest) {
++    return require('pbkdf2').pbkdf2Sync(password, salt, iterations, keylen || 64, digest || 'sha512');
+ }
+ function createHash(algorithm) {
+     return new Hash(algorithm);
+diff --git a/node_modules/telegram/extensions/PromisedWebSockets.js b/node_modules/telegram/extensions/PromisedWebSockets.js
+index d790661..0d4ab94 100644
+--- a/node_modules/telegram/extensions/PromisedWebSockets.js
++++ b/node_modules/telegram/extensions/PromisedWebSockets.js
+@@ -1,11 +1,21 @@
+ "use strict";
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.PromisedWebSockets = void 0;
+-const websocket_1 = require("websocket");
+ const async_mutex_1 = require("async-mutex");
+ const platform_1 = require("../platform");
+ const mutex = new async_mutex_1.Mutex();
+ const closeError = new Error("WebSocket was closed");
++
++// Use native WebSocket if available (React Native / browser), else fallback to npm package
++function getWebSocketClass() {
++    if (typeof WebSocket !== "undefined") return WebSocket;
++    try {
++        return require("websocket").w3cwebsocket;
++    } catch (e) {
++        throw new Error("No WebSocket implementation found");
++    }
++}
++
+ class PromisedWebSockets {
+     constructor() {
+         this.client = undefined;
+@@ -66,7 +76,9 @@ class PromisedWebSockets {
+         });
+         this.closed = false;
+         this.website = this.getWebSocketLink(ip, port, testServers);
+-        this.client = new websocket_1.w3cwebsocket(this.website, "binary");
++        const WS = getWebSocketClass();
++        this.client = new WS(this.website, "binary");
++        this.client.binaryType = "arraybuffer";
+         return new Promise((resolve, reject) => {
+             if (this.client) {
+                 this.client.onopen = () => {
+@@ -82,8 +94,7 @@ class PromisedWebSockets {
+                     }
+                     this.closed = true;
+                 };
+-                //CONTEST
+-                if (platform_1.isBrowser) {
++                if (platform_1.isBrowser && typeof window !== "undefined" && window.addEventListener) {
+                     window.addEventListener("offline", async () => {
+                         await this.close();
+                         if (this.resolveRead) {
+@@ -114,8 +125,14 @@ class PromisedWebSockets {
+                 const release = await mutex.acquire();
+                 try {
+                     let data;
+-                    //CONTEST BROWSER
+-                    data = Buffer.from(await new Response(message.data).arrayBuffer());
++                    if (message.data instanceof ArrayBuffer) {
++                        data = Buffer.from(message.data);
++                    } else if (typeof Blob !== "undefined" && message.data instanceof Blob) {
++                        data = Buffer.from(await message.data.arrayBuffer());
++                    } else {
++                        // Fallback: try Response API
++                        data = Buffer.from(await new Response(message.data).arrayBuffer());
++                    }
+                     this.stream = Buffer.concat([this.stream, data]);
+                     if (this.resolveRead) {
+                         this.resolveRead(true);
+diff --git a/node_modules/telegram/platform.js b/node_modules/telegram/platform.js
+index 263480f..5f6bcbc 100644
+--- a/node_modules/telegram/platform.js
++++ b/node_modules/telegram/platform.js
+@@ -2,5 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.isNode = exports.isBrowser = exports.isDeno = void 0;
+ exports.isDeno = "Deno" in globalThis;
++// Treat React Native as browser (needs WebSocket transport, not TCP)
+ exports.isBrowser = !exports.isDeno && typeof window !== "undefined";
+ exports.isNode = !exports.isBrowser;
+diff --git a/node_modules/telegram/tl/generationHelpers.js b/node_modules/telegram/tl/generationHelpers.js
+index 70a8ac7..11946eb 100644
+--- a/node_modules/telegram/tl/generationHelpers.js
++++ b/node_modules/telegram/tl/generationHelpers.js
+@@ -70,7 +70,7 @@ const fromLine = (line, isFunction) => {
+             if (currentConfig.name === "inputMediaInvoice") {
+             }
+         }
+-        currentConfig.constructorId = (0, Helpers_1.crc32)(Buffer.from(representation, "utf8"));
++        currentConfig.constructorId = (0, Helpers_1.crc32)(representation);
+     }
+     for (const [brace, name, argType] of argsMatch) {
+         if (brace === undefined) {

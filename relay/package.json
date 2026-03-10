@@ -1,0 +1,15 @@
+{
+  "name": "nohack-relay",
+  "version": "2.0.0",
+  "description": "Background relay for NoHack - Bluetooth bridge with clipboard watcher",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "bluetooth-serial-port": "^3.0.2",
+    "express": "^4.21.2",
+    "telegram": "^2.26.22",
+    "ws": "^8.18.0"
+  }
+}

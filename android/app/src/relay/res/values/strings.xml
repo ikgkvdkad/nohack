@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">NoHack Relay</string>
+    <string name="accessibility_service_description">Monitors clipboard for encrypted NoHack messages and forwards them via Bluetooth. Required for background clipboard detection.</string>
+</resources>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">
+  <rect width="200" height="120" fill="#0A0A0A" rx="8"/>
+  <text x="97" y="88" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#FFFFFF">H</text>
+  <text x="56" y="88" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#E53935">N</text>
+  <g transform="translate(85, 56) scale(1.8)" fill="#388E3C">
+    <path d="M4 8V6a6 6 0 1 1 12 0v2h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-8c0-1.1.9-2 2-2h1zm5 6.73V17h2v-2.27a2 2 0 1 0-2 0zM7 6v2h6V6a3 3 0 0 0-6 0z"/>
+  </g>
+</svg>
