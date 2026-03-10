@@ -35,5 +35,11 @@ logcat_*.txt
 .env
 .env.*
 
+# Relay build output + message queues
+relay/dist/
+relay/outbox/
+relay/sent/
+relay/node_modules/
+
 # Temporary
 *.tgz
