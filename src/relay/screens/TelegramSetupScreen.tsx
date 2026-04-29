@@ -106,10 +106,6 @@ export default function TelegramSetupScreen({navigation}: Props) {
     // Polling in useEffect will detect success
   };
 
-  const handleSkip = () => {
-    navigation.replace('RelayMain');
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor="#16162A" barStyle="light-content" />
@@ -121,8 +117,7 @@ export default function TelegramSetupScreen({navigation}: Props) {
       <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>Login with Telegram</Text>
         <Text style={styles.description}>
-          Log in with your Telegram account to automatically relay messages.
-          Your Telegram username becomes your reachable address.
+          Log in with your Telegram account to relay messages between NoHack devices.
         </Text>
 
         {step === 'phone' && (
@@ -215,9 +210,7 @@ export default function TelegramSetupScreen({navigation}: Props) {
           </>
         )}
 
-        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
-          <Text style={styles.skipBtnText}>Skip — use clipboard only</Text>
-        </TouchableOpacity>
+        {/* Telegram login is required — no clipboard fallback */}
       </ScrollView>
     </View>
   );
@@ -258,7 +251,5 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   primaryBtnText: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
-  skipBtn: {paddingVertical: 16, alignItems: 'center', marginTop: 8},
-  skipBtnText: {color: '#666', fontSize: 14},
   btnDisabled: {opacity: 0.5},
 });

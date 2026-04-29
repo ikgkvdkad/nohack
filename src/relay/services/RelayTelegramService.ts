@@ -176,8 +176,8 @@ class RelayTelegramService {
       phoneCode: () => new Promise<string>((resolve, reject) => {
         this.pendingPhoneCodeResolve = resolve;
         this.authReject = reject;
-        // Start polling for the verification code from Telegram service notifications
-        this.startCodePolling();
+        // Note: can't auto-read code during initial login — client isn't authorized yet.
+        // User must enter the code manually (one-time setup).
       }),
       password: () => new Promise<string>((resolve, reject) => {
         this.pendingPasswordResolve = resolve;
@@ -478,22 +478,6 @@ class RelayTelegramService {
     } catch (err: any) {
       this.emitLog(`Telegram send failed: ${err.message}`);
     }
-  }
-
-  /**
-   * Enrich any outgoing .nohack message with our Telegram username.
-   * Used for clipboard path (non-Telegram).
-   */
-  enrichOutgoing(noHackJson: string): string {
-    if (!this.username) return noHackJson;
-    try {
-      const data = JSON.parse(noHackJson);
-      if (data.nohack === '3') {
-        data.relayTelegramId = this.username;
-        return JSON.stringify(data);
-      }
-    } catch {}
-    return noHackJson;
   }
 
   // ── Name resolution ────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ export default function RelayMainScreen() {
   const [telegramId, setTelegramId] = useState('');
   const [deviceName, setDeviceName] = useState('NoHack');
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [remoteSlide, setRemoteSlide] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   // Inbound queue: Telegram messages waiting for USB to reconnect
@@ -114,6 +115,10 @@ export default function RelayMainScreen() {
         });
         return;
       }
+      if (response.cmd === 'kill_slide' && response.position != null) {
+        setRemoteSlide(response.position);
+        return;
+      }
       if ((response.cmd === 'encrypted' || response.cmd === 'introduction') && response.payload) {
         RelayTelegramService.sendNoHack(response.payload);
       }
@@ -148,11 +153,17 @@ export default function RelayMainScreen() {
       </View>
 
       {/* Kill switch */}
-      <KillSwitchSlider onActivate={() => {
-        factoryResetRelay(true).then(() => {
-          navigation.reset({index: 0, routes: [{name: 'TelegramSetup'}]});
-        });
-      }} />
+      <KillSwitchSlider
+        onActivate={() => {
+          factoryResetRelay(true).then(() => {
+            navigation.reset({index: 0, routes: [{name: 'TelegramSetup'}]});
+          });
+        }}
+        onSlide={(pos) => {
+          RelayUsbService.send(serializeForTransport({cmd: 'kill_slide', position: pos}));
+        }}
+        remotePosition={remoteSlide}
+      />
 
       {/* Status card */}
       <View style={styles.statusSection}>

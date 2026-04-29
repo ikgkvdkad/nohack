@@ -36,18 +36,20 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- NoHack is USB Accessory — auto-launch when Relay initiates AOA -->
         <intent-filter>
             <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
         </intent-filter>
         <meta-data
             android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
             android:resource="@xml/usb_accessory_filter" />
+        <!-- Also claim raw USB device connections so NoHack auto-opens on cable plug -->
         <intent-filter>
             <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
         </intent-filter>
         <meta-data
             android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-            android:resource="@xml/usb_device_filter" />
+            android:resource="@xml/usb_device_filter_nohack" />
       </activity>
       <service
         android:name=".UsbForegroundService"

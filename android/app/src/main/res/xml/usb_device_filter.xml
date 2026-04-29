@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Match any USB device (NoHack pairs with Relay phone via USB-C) -->
-    <usb-device />
+    <!-- Only match AOA devices (Google vendor 0x18D1) — avoids double dialog
+         when the NoHack phone re-enumerates after AOA handshake.
+         The initial device scan is handled programmatically by UsbHostModule. -->
+    <usb-device vendor-id="6353" product-id="11520" />  <!-- 0x18D1 / 0x2D00 = AOA -->
+    <usb-device vendor-id="6353" product-id="11521" />  <!-- 0x18D1 / 0x2D01 = AOA + ADB -->
 </resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Match any USB device so NoHack auto-opens on cable plug.
+         The Relay side handles AOA filtering; NoHack just needs to be foregrounded. -->
+    <usb-device />
+</resources>

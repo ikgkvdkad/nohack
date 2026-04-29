@@ -107,6 +107,7 @@ export default function ChatListScreen() {
   const [contactList, setContactList] = useState<Contact[]>([]);
   const [sentTag, setSentTag] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const [remoteSlide, setRemoteSlide] = useState<number | null>(null);
 
   // Load contacts + start USB listener
   useEffect(() => {
@@ -256,6 +257,8 @@ export default function ChatListScreen() {
         factoryResetNoHack(false).then(() => {
           navigation.reset({index: 0, routes: [{name: 'Setup'}]});
         });
+      } else if (cmd.cmd === 'kill_slide' && cmd.position != null) {
+        setRemoteSlide(cmd.position);
       } else if (cmd.cmd === 'ping') {
         const name = getMyName() || keyToName(getPublicKey());
         UsbService.sendResponse({cmd: 'ack', deviceName: name});
@@ -265,14 +268,16 @@ export default function ChatListScreen() {
   }, []);
 
   const handleStartEditName = useCallback(() => {
-    setEditNameText(myName);
+    setEditNameText('');
     setEditingName(true);
-  }, [myName]);
+  }, []);
 
   const handleSaveName = useCallback(async () => {
     const trimmed = editNameText.trim();
     if (trimmed && trimmed !== myName) {
       await setMyName(trimmed);
+      // Proactively notify Relay of the name change
+      UsbService.sendResponse({cmd: 'ack', deviceName: trimmed});
     }
     setEditingName(false);
   }, [editNameText, myName]);
@@ -408,7 +413,8 @@ export default function ChatListScreen() {
               onBlur={handleSaveName}
               onSubmitEditing={handleSaveName}
               autoFocus
-              selectTextOnFocus
+              placeholder="Type your name"
+              placeholderTextColor="#666"
               maxLength={24}
               returnKeyType="done"
             />
@@ -426,11 +432,17 @@ export default function ChatListScreen() {
       </View>
 
       {/* Kill switch */}
-      <KillSwitchSlider onActivate={() => {
-        factoryResetNoHack(true).then(() => {
-          navigation.reset({index: 0, routes: [{name: 'Setup'}]});
-        });
-      }} />
+      <KillSwitchSlider
+        onActivate={() => {
+          factoryResetNoHack(true).then(() => {
+            navigation.reset({index: 0, routes: [{name: 'Setup'}]});
+          });
+        }}
+        onSlide={(pos) => {
+          UsbService.sendResponse({cmd: 'kill_slide', position: pos});
+        }}
+        remotePosition={remoteSlide}
+      />
 
       {/* Chat list */}
       {contactList.length > 0 ? (

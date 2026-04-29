@@ -6,6 +6,10 @@ export type RootStackParamList = {
   ChatList: undefined;
   Chat: {
     contactKey: string; // public key of contact
+    photoBase64?: string; // returned from CameraScreen
+  };
+  Camera: {
+    contactKey: string; // which chat to return to
   };
   AddContact: undefined;
 };
@@ -44,14 +48,16 @@ export interface InnerPayload {
 
 // Relay → NoHack
 export interface TransportCommand {
-  cmd: 'decrypt' | 'introduction' | 'ping' | 'identify' | 'factory_reset';
+  cmd: 'decrypt' | 'introduction' | 'ping' | 'identify' | 'factory_reset' | 'kill_slide';
   payload?: string; // .nohack file JSON string for decrypt/introduction
   relayTelegramId?: string; // sent with 'identify' so NoHack knows its relay's address
+  position?: number; // kill_slide: 0.0–1.0
 }
 
 // NoHack → Relay
 export interface TransportResponse {
-  cmd: 'encrypted' | 'introduction' | 'ack' | 'factory_reset';
+  cmd: 'encrypted' | 'introduction' | 'ack' | 'factory_reset' | 'kill_slide';
   payload?: string; // .nohack file JSON string
   deviceName?: string; // included in ack so relay knows our display name
+  position?: number; // kill_slide: 0.0–1.0
 }

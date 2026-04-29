@@ -2,8 +2,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_bg"/>
     <item
-        android:width="96dp"
-        android:height="96dp"
+        android:width="144dp"
+        android:height="144dp"
         android:gravity="center">
         <bitmap
             android:gravity="fill"

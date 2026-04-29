@@ -100,7 +100,7 @@ class UsbService {
     for (const line of lines) {
       const parsed = parseTransportLine(line);
       if (parsed && 'cmd' in parsed) {
-        if (parsed.cmd === 'decrypt' || parsed.cmd === 'introduction' || parsed.cmd === 'ping' || parsed.cmd === 'identify') {
+        if (parsed.cmd === 'decrypt' || parsed.cmd === 'introduction' || parsed.cmd === 'ping' || parsed.cmd === 'identify' || parsed.cmd === 'factory_reset' || parsed.cmd === 'kill_slide') {
           this.emitCommand(parsed as TransportCommand);
         }
       }

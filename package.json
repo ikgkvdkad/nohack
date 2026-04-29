@@ -10,6 +10,7 @@
     "postinstall": "npx patch-package && node scripts/patch-android.js"
   },
   "dependencies": {
+    "@bam.tech/react-native-image-resizer": "^3.0.11",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-navigation/native": "^6.1.17",

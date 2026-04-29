@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const { INBOX, OUTBOX, SENT } = require('./config');
-const { markAsOutgoing } = require('./clipboard');
 const { keyToName } = require('./deviceName');
 const telegramService = require('./telegramService');
 
@@ -14,41 +12,10 @@ function timestamp() {
 function isNoHackContent(content) {
   try {
     const data = JSON.parse(content.trim());
-    // Support both v2 (.nohack file format) and v3 (clipboard protocol)
+    // Support both v2 (.nohack file format) and v3 (transport protocol)
     if (data.nohack === '3' && data.id && data.tag) return true;
     if (data.version === '2' && data.type && data.senderPublicKey) return true;
     return false;
-  } catch {
-    return false;
-  }
-}
-
-// Copy text to system clipboard
-function copyTextToClipboard(text) {
-  try {
-    if (process.platform === 'win32') {
-      const proc = spawn('clip');
-      proc.stdin.write(text, 'utf8');
-      proc.stdin.end();
-    } else if (process.platform === 'darwin') {
-      const proc = spawn('pbcopy');
-      proc.stdin.write(text, 'utf8');
-      proc.stdin.end();
-    } else {
-      const proc = spawn('xclip', ['-selection', 'clipboard']);
-      proc.stdin.write(text, 'utf8');
-      proc.stdin.end();
-    }
-  } catch {}
-}
-
-// Re-copy an outbox file's content to clipboard
-function copyOutboxFile(filename) {
-  try {
-    const filePath = path.join(OUTBOX, filename);
-    const content = fs.readFileSync(filePath, 'utf8');
-    copyTextToClipboard(content);
-    return true;
   } catch {
     return false;
   }
@@ -101,23 +68,14 @@ function handleResponse(response, relay) {
       const tag = extractTag(response.payload);
       const filename = tag ? `${tag}.txt` : `reply-${timestamp()}.txt`;
 
-      // Mark as outgoing so clipboard watcher won't pick it back up
-      try { const d = JSON.parse(response.payload); if (d.id) markAsOutgoing(d.id); } catch {}
-
-      // Enrich with our Telegram username so receiver can route back
-      const enrichedEncrypted = telegramService.enrichOutgoing(response.payload);
-
-      // Send via Telegram (async, don't block clipboard)
+      // Send via Telegram
       telegramService.sendNoHack(response.payload);
 
-      // Save to hidden outbox only
-      fs.writeFileSync(path.join(OUTBOX, filename), enrichedEncrypted, 'utf8');
+      // Save to outbox for record
+      fs.writeFileSync(path.join(OUTBOX, filename), response.payload, 'utf8');
 
-      // Copy text to clipboard — user just Ctrl+V's it
-      copyTextToClipboard(enrichedEncrypted);
-
-      relay.emit('log', `${tag || 'Reply'} copied — Ctrl+V to paste`);
-      relay.emit('activity', { type: 'received', name: filename, tag, time: new Date().toISOString(), copied: true });
+      relay.emit('log', `${tag || 'Reply'} sent via Telegram`);
+      relay.emit('activity', { type: 'received', name: filename, tag, time: new Date().toISOString() });
       break;
     }
     case 'introduction': {
@@ -125,22 +83,20 @@ function handleResponse(response, relay) {
       const tag = extractTag(response.payload);
       const filename = tag ? `${tag}-intro.txt` : `intro-${timestamp()}.txt`;
 
-      // Enrich with Telegram username so recipient can route messages back
-      const enrichedPayload = telegramService.enrichOutgoing(response.payload);
-
-      // Extract sender name from public key
       let senderName = 'Unknown';
       try {
-        const d = JSON.parse(enrichedPayload);
-        if (d.id) markAsOutgoing(d.id);
+        const d = JSON.parse(response.payload);
         if (d.senderPublicKey) senderName = keyToName(d.senderPublicKey);
       } catch {}
 
-      fs.writeFileSync(path.join(OUTBOX, filename), enrichedPayload, 'utf8');
-      copyTextToClipboard(enrichedPayload);
+      // Send via Telegram
+      telegramService.sendNoHack(response.payload);
 
-      relay.emit('log', `${senderName} contact card (${tag}) copied — Ctrl+V to paste`);
-      relay.emit('activity', { type: 'received', name: filename, tag, time: new Date().toISOString(), copied: true });
+      // Save to outbox for record
+      fs.writeFileSync(path.join(OUTBOX, filename), response.payload, 'utf8');
+
+      relay.emit('log', `${senderName} contact card (${tag}) sent via Telegram`);
+      relay.emit('activity', { type: 'received', name: filename, tag, time: new Date().toISOString() });
       break;
     }
     case 'ack':
@@ -199,5 +155,4 @@ module.exports = {
   startFileWatching,
   sendPendingFiles,
   receiveFile,
-  copyOutboxFile,
 };

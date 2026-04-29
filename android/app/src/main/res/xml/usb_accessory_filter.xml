@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Only accept AOA accessory from NoHack Relay — no wildcard fallback -->
-    <usb-accessory manufacturer="NoHack" model="NoHack Relay" />
+    <!-- Accept any USB accessory — only Relay will ever initiate AOA -->
+    <usb-accessory />
 </resources>

@@ -153,7 +153,7 @@
   .sent-code { color: #E9EDEF; font-size: 16px; font-weight: 700; font-family: monospace; letter-spacing: 3px; }
   .sent-label-text { color: #8696A0; font-size: 12px; }
 
-  /* ── Paste overlay */
+  /* ── Overlays (settings etc.) */
   .overlay {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.9); z-index: 10;
@@ -164,26 +164,6 @@
   .overlay-title { color: #E9EDEF; font-size: 18px; font-weight: 600; }
   .overlay-close { color: #8696A0; font-size: 24px; background: none; border: none; cursor: pointer; }
   .overlay-close:hover { color: #E9EDEF; }
-  .paste-input {
-    flex: 1; width: 100%; background: #1F2C34;
-    border: 1px solid #2A3942; border-radius: 12px;
-    color: #00A884; font-family: monospace; font-size: 13px; padding: 16px;
-    resize: none; outline: none;
-  }
-  .paste-input::placeholder { color: #8696A0; }
-  .paste-input:focus { border-color: #00A884; }
-  .overlay-actions { display: flex; gap: 8px; margin-top: 12px; }
-  .overlay-actions button { flex: 1; padding: 14px; font-size: 15px; }
-  .btn-primary {
-    background: #00A884; color: #FFF; border: none; border-radius: 12px;
-    font-weight: 600; cursor: pointer; transition: opacity 0.15s;
-  }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-ghost {
-    background: #2A3942; color: #E9EDEF; border: none; border-radius: 12px;
-    font-weight: 500; cursor: pointer; transition: background 0.15s;
-  }
-  .btn-ghost:hover { background: #3A4952; }
 
   /* ── Settings */
   .settings-field { margin-bottom: 20px; }
@@ -205,10 +185,11 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
   .chat-back-btn {
-    color: #AAAAAA; font-size: 28px; font-weight: 300; background: none; border: none;
-    cursor: pointer; padding: 0 8px 0 4px; line-height: 1;
+    color: #E9EDEF; font-size: 28px; font-weight: 400; background: none; border: none;
+    cursor: pointer; padding: 8px 14px; line-height: 1; min-width: 44px; min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .chat-back-btn:hover { color: #E9EDEF; }
+  .chat-back-btn:hover { color: #FFFFFF; }
   .chat-header-avatar {
     width: 40px; height: 40px; border-radius: 20px;
     background: rgba(76,175,80,0.2);
@@ -414,7 +395,8 @@
   <div id="chatListScreen" class="screen active">
     <div class="header">
       <div class="header-left">
-        <span class="header-title"><span style="color:#E53935">NO</span>HACK <span class="header-name" id="myNameDisplay"></span></span>
+        <span class="header-title"><span style="color:#E53935">NO</span>HACK <span class="header-name" id="myNameDisplay" onclick="startEditName()" title="Click to edit name" style="cursor:pointer"></span><span id="nameEditIcon" onclick="startEditName()" style="color:#8696A0;font-size:13px;cursor:pointer;margin-left:4px">&#9998;</span></span>
+        <input type="text" id="nameEditInput" maxlength="24" style="display:none;font-size:14px;color:#E9EDEF;background:transparent;border:none;border-bottom:1px solid #4CAF50;outline:none;padding:2px 0;font-family:inherit;width:140px" />
       </div>
       <div class="header-right">
         <div class="status-dot" id="listConnDot" style="background:#E53935"></div>
@@ -441,19 +423,18 @@
     <div id="sentBanner" class="sent-banner" style="display:none">
       <span class="sent-check">sent</span>
       <span class="sent-code" id="sentTag"></span>
-      <span class="sent-label-text">copied to clipboard</span>
+      <span class="sent-label-text">sent via Telegram</span>
     </div>
 
     <div class="bottom-bar">
       <button class="btn-secondary" onclick="handleShareContact()">Share my contact card</button>
-      <button class="btn-secondary" onclick="openPasteOverlay()">Paste incoming message</button>
     </div>
   </div>
 
   <!-- ── Chat Screen ─────────────────────────────────────────── -->
   <div id="chatScreen" class="screen">
     <div class="chat-header">
-      <button class="chat-back-btn" onclick="backToList()">&#8249;</button>
+      <button class="chat-back-btn" onclick="backToList()">&larr;</button>
       <div class="chat-header-avatar">
         <span class="chat-header-avatar-text" id="chatAvatarLetter"></span>
       </div>
@@ -494,19 +475,6 @@
     </div>
   </div>
 
-  <!-- ── Paste overlay ───────────────────────────────────────── -->
-  <div class="overlay" id="pasteOverlay">
-    <div class="overlay-header">
-      <span class="overlay-title">Paste message</span>
-      <button class="overlay-close" onclick="closePasteOverlay()">&times;</button>
-    </div>
-    <textarea class="paste-input" id="pasteInput" placeholder="Paste .nohack JSON from Telegram here..."></textarea>
-    <div class="overlay-actions">
-      <button class="btn-primary" onclick="handlePasteOpen()">Process</button>
-      <button class="btn-ghost" onclick="closePasteOverlay()">Cancel</button>
-    </div>
-  </div>
-
   <!-- ── Settings overlay ────────────────────────────────────── -->
   <div class="overlay" id="settingsOverlay">
     <div class="overlay-header">
@@ -542,7 +510,7 @@
     <div class="context-menu-item danger" onclick="deleteContextMessage()">Delete unsent message</div>
   </div>
 
-  <div class="copy-toast" id="copyToast">Copied to clipboard</div>
+  <div class="copy-toast" id="copyToast"></div>
 
   <!-- Hidden file input for images -->
   <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFileSelected(event)" />
@@ -701,8 +669,10 @@ function generateTag() {
   return tag;
 }
 
-function packInnerPayload(senderPublicKey, contentType, body) {
-  return JSON.stringify({ type: 'message', senderPublicKey, contentType, body });
+function packInnerPayload(senderPublicKey, contentType, body, senderName) {
+  var inner = { type: 'message', senderPublicKey: senderPublicKey, contentType: contentType, body: body };
+  if (senderName) inner.senderName = senderName;
+  return JSON.stringify(inner);
 }
 
 function unpackInnerPayload(json) {
@@ -735,6 +705,7 @@ function saveMessages() { localStorage.setItem('@nohack_web_messages', JSON.stri
 function addOrUpdateContact(publicKey, name, telegramId) {
   let c = contacts.find(function(x) { return x.publicKey === publicKey; });
   if (c) {
+    if (name && name !== c.name) c.name = name;
     if (telegramId) c.telegramId = telegramId;
     saveContacts();
     return c;
@@ -830,8 +801,44 @@ let currentPlayingId = null;
 // ── Init ─────────────────────────────────────────────────────────────────
 
 var isNew = initKeys();
-var myName = keyToName(getPublicKey());
+var myName = localStorage.getItem('@nohack_web_name') || keyToName(getPublicKey());
 document.getElementById('myNameDisplay').textContent = myName;
+
+function startEditName() {
+  var display = document.getElementById('myNameDisplay');
+  var icon = document.getElementById('nameEditIcon');
+  var input = document.getElementById('nameEditInput');
+  display.style.display = 'none';
+  icon.style.display = 'none';
+  input.style.display = 'inline-block';
+  input.value = '';
+  input.placeholder = 'Type your name';
+  input.focus();
+}
+
+function finishEditName() {
+  var display = document.getElementById('myNameDisplay');
+  var icon = document.getElementById('nameEditIcon');
+  var input = document.getElementById('nameEditInput');
+  var trimmed = input.value.trim();
+  if (trimmed && trimmed !== myName) {
+    myName = trimmed;
+    localStorage.setItem('@nohack_web_name', myName);
+  }
+  display.textContent = myName;
+  display.style.display = '';
+  icon.style.display = '';
+  input.style.display = 'none';
+}
+
+document.getElementById('nameEditInput').addEventListener('blur', finishEditName);
+document.getElementById('nameEditInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); finishEditName(); }
+  if (e.key === 'Escape') {
+    document.getElementById('nameEditInput').value = myName;
+    finishEditName();
+  }
+});
 
 // Recalculate unread counts
 for (var ck in messages) {
@@ -1066,7 +1073,7 @@ function handleSend() {
     body = text;
   }
 
-  var innerJson = packInnerPayload(getPublicKey(), contentType, body);
+  var innerJson = packInnerPayload(getPublicKey(), contentType, body, myName);
   var encrypted = encryptMessage(innerJson, currentContactKey);
 
   var file = {
@@ -1082,21 +1089,19 @@ function handleSend() {
     file.relayTelegramId = telegramUsername;
   }
 
-  var json = JSON.stringify(file);
-  navigator.clipboard.writeText(json).then(function() {
-    showToast('Copied \u2014 paste into Telegram');
-  }).catch(function() {
-    showToast('Could not copy \u2014 check browser permissions');
-  });
-
   var msg = {
     id: file.id, direction: 'out', contentType: contentType,
     tag: pendingTag, timestamp: Date.now(), status: 'queued'
   };
   if (hasText) msg.text = text;
   if (hasImage) msg.image = imageBase64;
-
   addMsg(currentContactKey, msg);
+
+  if (sendViaRelay(file)) {
+    updateMessageStatus([file.id], 'sent');
+  } else {
+    showToast('Not connected to relay');
+  }
 
   // Clear
   document.getElementById('composeInput').value = '';
@@ -1208,7 +1213,7 @@ function stopAndSendVoice() {
 function sendVoiceMessage(base64Audio) {
   if (!currentContactKey) return;
 
-  var innerJson = packInnerPayload(getPublicKey(), 'voice', base64Audio);
+  var innerJson = packInnerPayload(getPublicKey(), 'voice', base64Audio, myName);
   var encrypted = encryptMessage(innerJson, currentContactKey);
 
   var tag = generateTag();
@@ -1221,15 +1226,16 @@ function sendVoiceMessage(base64Audio) {
   if (contact && contact.telegramId) file.recipientTelegramId = contact.telegramId;
   if (telegramUsername) file.relayTelegramId = telegramUsername;
 
-  var json = JSON.stringify(file);
-  navigator.clipboard.writeText(json).then(function() {
-    showToast('Voice copied \u2014 paste into Telegram');
-  }).catch(function() {});
-
   addMsg(currentContactKey, {
     id: file.id, direction: 'out', contentType: 'voice',
     voice: base64Audio, tag: tag, timestamp: Date.now(), status: 'queued'
   });
+
+  if (sendViaRelay(file)) {
+    updateMessageStatus([file.id], 'sent');
+  } else {
+    showToast('Not connected to relay');
+  }
 
   pendingTag = generateTag();
   document.getElementById('composeTag').textContent = myName + ' \u2014 ' + pendingTag;
@@ -1283,8 +1289,7 @@ function sendReadAck(ids, telegramId) {
   var ack = createAck('read', ids);
   ack.recipientTelegramId = telegramId;
   if (telegramUsername) ack.relayTelegramId = telegramUsername;
-  // Best effort: copy to clipboard silently (won't overwrite if user is composing)
-  // In web version, acks are passive — they're sent when pasting back
+  sendViaRelay(ack);
 }
 
 // ── Context menu for deleting queued messages ────────────────────────────
@@ -1316,141 +1321,21 @@ document.addEventListener('click', function() {
 function handleShareContact() {
   var intro = {
     tag: generateTag(), nohack: '3', id: generateId(),
-    type: 'introduction', senderPublicKey: getPublicKey()
+    type: 'introduction', senderPublicKey: getPublicKey(),
+    senderName: myName
   };
   if (telegramUsername) {
     intro.relayTelegramId = telegramUsername;
   }
-  var json = JSON.stringify(intro);
-  navigator.clipboard.writeText(json).then(function() {
+  if (sendViaRelay(intro)) {
     var banner = document.getElementById('sentBanner');
     document.getElementById('sentTag').textContent = intro.tag;
     banner.style.display = 'flex';
     setTimeout(function() { banner.style.display = 'none'; }, 5000);
-  }).catch(function() {
-    showToast('Could not copy \u2014 check browser permissions');
-  });
-}
-
-// ── Paste overlay ────────────────────────────────────────────────────────
-
-function openPasteOverlay() {
-  document.getElementById('pasteInput').value = '';
-  document.getElementById('pasteOverlay').classList.add('active');
-  document.getElementById('pasteInput').focus();
-}
-
-function closePasteOverlay() {
-  document.getElementById('pasteOverlay').classList.remove('active');
-}
-
-function handlePasteOpen() {
-  var raw = document.getElementById('pasteInput').value.trim();
-  if (!raw) return;
-
-  // Unwrap relay protocol wrapper
-  try {
-    var wrapper = JSON.parse(raw);
-    if (wrapper.cmd && wrapper.payload && !wrapper.nohack) {
-      raw = wrapper.payload;
-    }
-  } catch(e) {}
-
-  var file;
-  try {
-    file = JSON.parse(raw.trim());
-    if (file.nohack !== '3' || !file.id || !file.tag) {
-      showToast('Invalid .nohack v3 format');
-      return;
-    }
-  } catch(e) {
-    showToast('Invalid JSON');
-    return;
+    showToast('Contact card sent via Telegram');
+  } else {
+    showToast('Not connected to relay \u2014 connect first in settings');
   }
-
-  closePasteOverlay();
-
-  // ── Ack ──
-  if (file.type === 'ack' && file.ackType && file.ackIds) {
-    updateMessageStatus(file.ackIds, file.ackType === 'read' ? 'read' : 'received');
-    showToast('Ack processed: ' + file.ackType);
-    return;
-  }
-
-  // ── Introduction ──
-  if (file.type === 'introduction' && file.senderPublicKey) {
-    if (file.senderPublicKey === getPublicKey()) {
-      showToast('That is your own contact card');
-      return;
-    }
-    var name = keyToName(file.senderPublicKey);
-    addOrUpdateContact(file.senderPublicKey, name, file.relayTelegramId);
-    addMsg(file.senderPublicKey, {
-      id: file.id, direction: 'in', contentType: 'text',
-      text: 'Contact card received', tag: file.tag,
-      timestamp: Date.now(), isIntroduction: true, unread: true
-    });
-    unreadCounts[file.senderPublicKey] = (unreadCounts[file.senderPublicKey] || 0) + 1;
-    renderChatList();
-    openChat(file.senderPublicKey);
-    return;
-  }
-
-  // ── Encrypted message ──
-  if (file.payload) {
-    try {
-      var innerJson = decryptMessage(file.payload);
-      var inner = unpackInnerPayload(innerJson);
-      var name = keyToName(inner.senderPublicKey);
-      addOrUpdateContact(inner.senderPublicKey, name, file.relayTelegramId);
-
-      var msg = {
-        id: file.id, direction: 'in', contentType: inner.contentType,
-        tag: file.tag, timestamp: Date.now(), unread: true
-      };
-
-      if (inner.contentType === 'text') {
-        msg.text = inner.body;
-      } else if (inner.contentType === 'image') {
-        msg.image = inner.body;
-      } else if (inner.contentType === 'voice') {
-        msg.voice = inner.body;
-      } else if (inner.contentType === 'video') {
-        msg.video = inner.body;
-      } else if (inner.contentType === 'mixed') {
-        try {
-          var mixed = JSON.parse(inner.body);
-          msg.text = mixed.text;
-          msg.image = mixed.image;
-        } catch(e) {}
-      }
-
-      addMsg(inner.senderPublicKey, msg);
-
-      // Track unread if not currently viewing this contact
-      if (currentContactKey !== inner.senderPublicKey) {
-        unreadCounts[inner.senderPublicKey] = (unreadCounts[inner.senderPublicKey] || 0) + 1;
-      }
-
-      renderChatList();
-      openChat(inner.senderPublicKey);
-
-      // Send received ack
-      var contact = getContact(inner.senderPublicKey);
-      if (contact && contact.telegramId) {
-        var ack = createAck('received', [file.id]);
-        ack.recipientTelegramId = contact.telegramId;
-        if (telegramUsername) ack.relayTelegramId = telegramUsername;
-        // Auto-copy ack (user can paste it back)
-        // We don't auto-copy acks in web version to not overwrite clipboard
-      }
-    } catch (err) {
-      showToast(err.message);
-    }
-    return;
-  }
-
-  showToast('Unrecognized .nohack file');
 }
 
 // ── Settings ─────────────────────────────────────────────────────────────
@@ -1472,13 +1357,6 @@ document.getElementById('composeInput').addEventListener('keydown', function(e) 
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     handleSend();
-  }
-});
-
-document.getElementById('pasteInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && e.ctrlKey) {
-    e.preventDefault();
-    handlePasteOpen();
   }
 });
 
@@ -1630,7 +1508,7 @@ function processIncomingFile(file) {
   }
 
   if (file.type === 'introduction' && file.senderPublicKey) {
-    var name = keyToName(file.senderPublicKey);
+    var name = file.senderName || keyToName(file.senderPublicKey);
     addOrUpdateContact(file.senderPublicKey, name, file.relayTelegramId);
     addMsg(file.senderPublicKey, {
       id: file.id, direction: 'in', contentType: 'text',
@@ -1647,7 +1525,7 @@ function processIncomingFile(file) {
     try {
       var innerJson = decryptMessage(file.payload);
       var inner = unpackInnerPayload(innerJson);
-      var name = keyToName(inner.senderPublicKey);
+      var name = inner.senderName || keyToName(inner.senderPublicKey);
       addOrUpdateContact(inner.senderPublicKey, name, file.relayTelegramId);
 
       var msg = {
@@ -1708,7 +1586,7 @@ handleSend = function() {
   else if (hasImage) { contentType = 'image'; body = imageBase64; }
   else { contentType = 'text'; body = text; }
 
-  var innerJson = packInnerPayload(getPublicKey(), contentType, body);
+  var innerJson = packInnerPayload(getPublicKey(), contentType, body, myName);
   var encrypted = encryptMessage(innerJson, currentContactKey);
 
   var file = {
@@ -1731,9 +1609,7 @@ handleSend = function() {
   if (sendViaRelay(file)) {
     updateMessageStatus([file.id], 'sent');
   } else {
-    navigator.clipboard.writeText(JSON.stringify(file)).then(function() {
-      showToast('Copied \u2014 paste into Telegram');
-    }).catch(function(){});
+    showToast('Not connected to relay');
   }
 
   document.getElementById('composeInput').value = '';
@@ -1750,7 +1626,7 @@ var _origSendVoice = sendVoiceMessage;
 sendVoiceMessage = function(base64Audio) {
   if (!currentContactKey) return;
 
-  var innerJson = packInnerPayload(getPublicKey(), 'voice', base64Audio);
+  var innerJson = packInnerPayload(getPublicKey(), 'voice', base64Audio, myName);
   var encrypted = encryptMessage(innerJson, currentContactKey);
 
   var tag = generateTag();
@@ -1771,9 +1647,7 @@ sendVoiceMessage = function(base64Audio) {
   if (sendViaRelay(file)) {
     updateMessageStatus([file.id], 'sent');
   } else {
-    navigator.clipboard.writeText(JSON.stringify(file)).then(function() {
-      showToast('Voice copied \u2014 paste into Telegram');
-    }).catch(function(){});
+    showToast('Not connected to relay');
   }
 
   pendingTag = generateTag();
@@ -1785,7 +1659,8 @@ var _origShareContact = handleShareContact;
 handleShareContact = function() {
   var intro = {
     tag: generateTag(), nohack: '3', id: generateId(),
-    type: 'introduction', senderPublicKey: getPublicKey()
+    type: 'introduction', senderPublicKey: getPublicKey(),
+    senderName: myName
   };
   if (telegramUsername) intro.relayTelegramId = telegramUsername;
 
@@ -1797,12 +1672,7 @@ handleShareContact = function() {
     setTimeout(function() { banner.style.display = 'none'; }, 5000);
     showToast('Contact card sent via Telegram');
   } else {
-    navigator.clipboard.writeText(JSON.stringify(intro)).then(function() {
-      banner.style.display = 'flex';
-      setTimeout(function() { banner.style.display = 'none'; }, 5000);
-    }).catch(function() {
-      showToast('Could not copy');
-    });
+    showToast('Not connected to relay');
   }
 };
 

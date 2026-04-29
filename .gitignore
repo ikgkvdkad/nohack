@@ -28,8 +28,8 @@ Thumbs.db
 *.log
 logcat_*.txt
 
-# Claude Code local settings
-.claude/settings.local.json
+# Claude Code local state (settings + runtime lock files)
+.claude/
 
 # Env / secrets
 .env

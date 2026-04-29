@@ -19,7 +19,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {launchCamera} from 'react-native-image-picker';
+// Camera: uses in-app CameraScreen instead of native picker
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
 import {RootStackParamList} from '../types';
@@ -27,8 +27,11 @@ import {createMessage, packInnerPayload} from '../utils/nohack';
 import {encrypt, getPublicKey} from '../crypto/keys';
 import {keyToName} from '../utils/deviceName';
 import {getMyName} from '../store/myNameStore';
-import {requestCameraPermission, requestMicrophonePermission} from '../utils/permissions';
+import {requestMicrophonePermission} from '../utils/permissions';
+import Svg, {Path} from 'react-native-svg';
 import UsbService from '../services/UsbService';
+import KillSwitchSlider from '../components/KillSwitchSlider';
+import {factoryResetNoHack} from '../services/FactoryResetService';
 import {getContact} from '../store/contactStore';
 import {
   getMessages,
@@ -161,22 +164,18 @@ export default function ChatScreen() {
 
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
 
-  const handleCamera = useCallback(async () => {
-    try {
-      const granted = await requestCameraPermission();
-      if (!granted) { Alert.alert('Permission denied', 'Camera permission is required.'); return; }
-      const result = await launchCamera({
-        mediaType: 'photo',
-        maxWidth: 1200,
-        maxHeight: 1200,
-        quality: 0.7,
-        includeBase64: true,
-      });
-      if (result.assets && result.assets[0]?.base64) {
-        setImageBase64(result.assets[0].base64);
-      }
-    } catch { Alert.alert('Error', 'Could not open camera.'); }
-  }, []);
+  const handleCamera = useCallback(() => {
+    navigation.navigate('Camera', {contactKey});
+  }, [navigation, contactKey]);
+
+  // Handle photo returned from CameraScreen
+  useEffect(() => {
+    const base64 = route.params?.photoBase64;
+    if (base64) {
+      setImageBase64(base64);
+      navigation.setParams({photoBase64: undefined});
+    }
+  }, [route.params?.photoBase64]);
 
   const handleClearImage = useCallback(() => setImageBase64(null), []);
 
@@ -356,16 +355,24 @@ export default function ChatScreen() {
           {item.video && <MediaThumb base64={item.video} isVideo />}
 
           {item.text && (
-            <Text style={isOut ? s.textOut : s.textIn}>
-              {item.text}
-              <Text style={s.timeSpacer}>{'     ' + (isOut ? '      ' : '')}</Text>
-            </Text>
+            <View>
+              <Text style={isOut ? s.textOut : s.textIn}>
+                {item.text}
+                <Text style={s.timeSpacer}>{'     ' + (isOut ? '      ' : '')}</Text>
+              </Text>
+              <View style={s.metaFloat}>
+                <Text style={isOut ? s.timeOut : s.timeIn}>{time}</Text>
+                {isOut && <StatusTicks status={item.status} />}
+              </View>
+            </View>
           )}
 
-          <View style={item.text ? s.metaFloat : s.meta}>
-            <Text style={isOut ? s.timeOut : s.timeIn}>{time}</Text>
-            {isOut && <StatusTicks status={item.status} />}
-          </View>
+          {!item.text && (
+            <View style={s.meta}>
+              <Text style={isOut ? s.timeOut : s.timeIn}>{time}</Text>
+              {isOut && <StatusTicks status={item.status} />}
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     );
@@ -396,6 +403,18 @@ export default function ChatScreen() {
         <View style={[s.connDot, {backgroundColor: connected ? '#4CAF50' : '#FFC107'}]} />
       </View>
 
+      {/* Kill switch */}
+      <KillSwitchSlider
+        onActivate={() => {
+          factoryResetNoHack(true).then(() => {
+            navigation.reset({index: 0, routes: [{name: 'Setup'}]});
+          });
+        }}
+        onSlide={(pos) => {
+          UsbService.sendResponse({cmd: 'kill_slide', position: pos});
+        }}
+      />
+
       {/* Messages */}
       <FlatList
         ref={flatListRef}
@@ -418,10 +437,9 @@ export default function ChatScreen() {
             <Text style={s.cancelRecordText}>X</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleStopAndSendVoice} style={s.sendBtn}>
-            <View style={s.sendArrow}>
-              <View style={s.sendArrowLine} />
-              <View style={s.sendArrowHead} />
-            </View>
+            <Svg width={28} height={28} viewBox="-0.86 -0.13 24 24">
+              <Path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 C22.8132856,11.0605983 22.3423792,10.4322088 21.714504,10.118014 L4.13399899,1.16346272 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.8376543,3.0486314 1.15159189,3.99121575 L3.03521743,10.4322088 C3.03521743,10.5893061 3.34915502,10.7464035 3.50612381,10.7464035 L16.6915026,11.5318905 C16.6915026,11.5318905 17.1624089,11.5318905 17.1624089,12.0031827 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" fill="#FFFFFF" fillRule="evenodd" stroke="none" />
+            </Svg>
           </TouchableOpacity>
         </View>
       )}
@@ -430,8 +448,12 @@ export default function ChatScreen() {
       {imageBase64 && !recording && (
         <View style={s.imagePreviewBar}>
           <Image source={{uri: `data:image/jpeg;base64,${imageBase64}`}} style={s.previewThumb} resizeMode="cover" />
-          <TouchableOpacity onPress={handleClearImage}>
-            <Text style={s.clearImageText}>Remove</Text>
+          <TouchableOpacity onPress={handleClearImage} style={s.clearImageBtn}>
+            <Svg width={22} height={22} viewBox="0 0 28 28" fill="none">
+              <Path d="M11.8489 22.6922C11.5862 22.7201 11.3509 22.5283 11.3232 22.2638L10.4668 14.0733C10.4392 13.8089 10.6297 13.5719 10.8924 13.5441L11.368 13.4937C11.6307 13.4659 11.8661 13.6577 11.8937 13.9221L12.7501 22.1126C12.7778 22.3771 12.5873 22.614 12.3246 22.6418L11.8489 22.6922Z" fill="#E53935" />
+              <Path d="M16.1533 22.6418C15.8906 22.614 15.7001 22.3771 15.7277 22.1126L16.5841 13.9221C16.6118 13.6577 16.8471 13.4659 17.1098 13.4937L17.5854 13.5441C17.8481 13.5719 18.0387 13.8089 18.011 14.0733L17.1546 22.2638C17.127 22.5283 16.8916 22.7201 16.6289 22.6922L16.1533 22.6418Z" fill="#E53935" />
+              <Path clipRule="evenodd" d="M11.9233 1C11.3494 1 10.8306 1.34435 10.6045 1.87545L9.54244 4.37037H4.91304C3.8565 4.37037 3 5.23264 3 6.2963V8.7037C3 9.68523 3.72934 10.4953 4.67218 10.6145L7.62934 26.2259C7.71876 26.676 8.11133 27 8.56729 27H20.3507C20.8242 27 21.2264 26.6513 21.2966 26.1799L23.4467 10.5956C24.3313 10.4262 25 9.64356 25 8.7037V6.2963C25 5.23264 24.1435 4.37037 23.087 4.37037H18.4561L17.394 1.87545C17.1679 1.34435 16.6492 1 16.0752 1H11.9233ZM16.3747 4.37037L16.0083 3.50956C15.8576 3.15549 15.5117 2.92593 15.1291 2.92593H12.8694C12.4868 2.92593 12.141 3.15549 11.9902 3.50956L11.6238 4.37037H16.3747ZM21.4694 11.0516C21.5028 10.8108 21.3154 10.5961 21.0723 10.5967L7.1143 10.6285C6.86411 10.6291 6.67585 10.8566 6.72212 11.1025L9.19806 24.259C9.28701 24.7317 9.69985 25.0741 10.1808 25.0741H18.6559C19.1552 25.0741 19.578 24.7058 19.6465 24.2113L21.4694 11.0516ZM22.1304 8.7037C22.6587 8.7037 23.087 8.27257 23.087 7.74074V7.25926C23.087 6.72743 22.6587 6.2963 22.1304 6.2963H5.86957C5.34129 6.2963 4.91304 6.72743 4.91304 7.25926V7.74074C4.91304 8.27257 5.34129 8.7037 5.86956 8.7037H22.1304Z" fill="#E53935" fillRule="evenodd" />
+            </Svg>
           </TouchableOpacity>
         </View>
       )}
@@ -447,7 +469,6 @@ export default function ChatScreen() {
             </View>
           </TouchableOpacity>
           <View style={s.inputWrap}>
-            <Text style={s.tagHint}>{myName} — {pendingTag}</Text>
             <TextInput
               style={s.textInput}
               multiline
@@ -459,10 +480,9 @@ export default function ChatScreen() {
           </View>
           {hasContent ? (
             <TouchableOpacity style={[s.sendBtn, sending && s.sendBtnDisabled]} onPress={handleSend} disabled={sending}>
-              <View style={s.sendArrow}>
-                <View style={s.sendArrowLine} />
-                <View style={s.sendArrowHead} />
-              </View>
+              <Svg width={28} height={28} viewBox="-0.86 -0.13 24 24">
+                <Path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 C22.8132856,11.0605983 22.3423792,10.4322088 21.714504,10.118014 L4.13399899,1.16346272 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.8376543,3.0486314 1.15159189,3.99121575 L3.03521743,10.4322088 C3.03521743,10.5893061 3.34915502,10.7464035 3.50612381,10.7464035 L16.6915026,11.5318905 C16.6915026,11.5318905 17.1624089,11.5318905 17.1624089,12.0031827 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" fill="#FFFFFF" fillRule="evenodd" stroke="none" />
+              </Svg>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={s.micBtn} onPress={handleStartRecording}>
@@ -517,8 +537,8 @@ const s = StyleSheet.create({
     backgroundColor: '#1F2C34',
     elevation: 3,
   },
-  backBtn: {paddingHorizontal: 4, paddingVertical: 8, paddingRight: 8},
-  backArrow: {color: '#E9EDEF', fontSize: 18},
+  backBtn: {paddingHorizontal: 12, paddingVertical: 12, marginLeft: -6},
+  backArrow: {color: '#E9EDEF', fontSize: 24},
   headerAvatar: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(76,175,80,0.2)',
@@ -541,7 +561,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 9,
     paddingTop: 6,
-    paddingBottom: 5,
+    paddingBottom: 8,
     maxWidth: '80%',
     minWidth: 80,
   },
@@ -568,12 +588,12 @@ const s = StyleSheet.create({
     marginTop: 1,
   },
   metaFloat: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 3,
-    marginTop: -14,
-    marginBottom: -2,
   },
   timeIn: {color: '#8696A099', fontSize: 11},
   timeOut: {color: '#FFFFFF80', fontSize: 11},
@@ -637,38 +657,38 @@ const s = StyleSheet.create({
   },
   // ── Camera icon (CSS-drawn) ──────────────────────
   cameraBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 46, height: 46, borderRadius: 23,
     alignItems: 'center' as const, justifyContent: 'center' as const,
   },
   cameraIconWrap: {
-    width: 22, height: 17,
+    width: 25, height: 20,
     position: 'relative' as const,
   },
   cameraBody: {
     position: 'absolute' as const,
     bottom: 0, left: 0, right: 0,
-    height: 14, borderRadius: 3,
+    height: 16, borderRadius: 3.5,
     backgroundColor: '#8696A0',
   },
   cameraLens: {
     position: 'absolute' as const,
-    bottom: 3, left: 7, width: 8, height: 8,
-    borderRadius: 4, backgroundColor: '#1F2C34',
+    bottom: 3, left: 8, width: 9, height: 9,
+    borderRadius: 4.5, backgroundColor: '#1F2C34',
     borderWidth: 1.5, borderColor: '#8696A0',
   },
   cameraFlash: {
     position: 'absolute' as const,
-    top: 0, left: 6, width: 10, height: 5,
+    top: 0, left: 6, width: 12, height: 6,
     borderTopLeftRadius: 2, borderTopRightRadius: 2,
     backgroundColor: '#8696A0',
   },
   inputWrap: {
     flex: 1,
     backgroundColor: '#2A3942',
-    borderRadius: 21,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    minHeight: 42,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minHeight: 48,
   },
   tagHint: {
     color: '#4CAF50',
@@ -678,52 +698,33 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 1,
   },
-  textInput: {color: '#E9EDEF', fontSize: 16, lineHeight: 20, maxHeight: 100, padding: 0},
+  textInput: {color: '#E9EDEF', fontSize: 18, lineHeight: 23, maxHeight: 115, padding: 0},
   sendBtn: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: '#00A884',
     alignItems: 'center' as const, justifyContent: 'center' as const,
   },
   sendBtnDisabled: {opacity: 0.4},
-  // ── Send arrow icon (CSS-drawn) ─────────────────
-  sendArrow: {
-    width: 20, height: 20,
-    alignItems: 'center' as const, justifyContent: 'center' as const,
-    transform: [{rotate: '-30deg'}],
-  },
-  sendArrowLine: {
-    width: 16, height: 2.5,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 1.5,
-  },
-  sendArrowHead: {
-    position: 'absolute' as const,
-    right: 0, top: 3,
-    width: 0, height: 0,
-    borderLeftWidth: 8, borderLeftColor: '#FFFFFF',
-    borderTopWidth: 5, borderTopColor: 'transparent',
-    borderBottomWidth: 5, borderBottomColor: 'transparent',
-  },
   // ── Mic icon (CSS-drawn) ────────────────────────
   micBtn: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 48, height: 48, borderRadius: 24,
     alignItems: 'center' as const, justifyContent: 'center' as const,
   },
   micIconWrap: {
-    width: 16, height: 24,
+    width: 18, height: 28,
     alignItems: 'center' as const,
   },
   micHead: {
-    width: 10, height: 14,
-    borderRadius: 5,
+    width: 12, height: 16,
+    borderRadius: 6,
     backgroundColor: '#8696A0',
   },
   micStem: {
-    width: 2, height: 4,
+    width: 2, height: 5,
     backgroundColor: '#8696A0',
   },
   micBase: {
-    width: 12, height: 2,
+    width: 14, height: 2,
     borderRadius: 1,
     backgroundColor: '#8696A0',
   },
@@ -734,7 +735,7 @@ const s = StyleSheet.create({
     backgroundColor: '#1F2C34',
   },
   previewThumb: {width: 48, height: 48, borderRadius: 6},
-  clearImageText: {color: '#E53935', fontSize: 13},
+  clearImageBtn: {padding: 8},
   // ── Full-size image viewer ─────────────────────────
   viewerContainer: {
     flex: 1,

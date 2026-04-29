@@ -9,6 +9,7 @@ import PinScreen from './src/screens/PinScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import AddContactScreen from './src/screens/AddContactScreen';
+import CameraScreen from './src/screens/CameraScreen';
 import {isSetupComplete} from './src/store/setupStore';
 import type {RootStackParamList} from './src/types';
 
@@ -49,6 +50,7 @@ export default function App() {
             <Stack.Screen name="ChatList" component={ChatListScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="AddContact" component={AddContactScreen} />
+            <Stack.Screen name="Camera" component={CameraScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>

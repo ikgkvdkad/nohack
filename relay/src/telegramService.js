@@ -5,7 +5,7 @@ const {
   loadTelegramCredentials,
   saveTelegramCredentials,
 } = require('./telegramConfig');
-const { markForwarded, wasForwarded } = require('./clipboard');
+const { markForwarded, wasForwarded } = require('./dedup');
 const { keyToName } = require('./deviceName');
 
 // ── Telegram API credentials ────────────────────────────────────────────────
@@ -131,7 +131,7 @@ async function requestCode(phone) {
     phoneNumber: () => phone,
     phoneCode: () => new Promise((resolve, reject) => {
       pendingPhoneCodeResolve = resolve;
-      startCodePolling();
+      // Can't auto-read code during initial login — client isn't authorized yet
     }),
     password: () => new Promise((resolve, reject) => {
       pendingPasswordResolve = resolve;
@@ -419,18 +419,6 @@ async function sendNoHack(payload) {
   }
 }
 
-function enrichOutgoing(noHackJson) {
-  if (!username) return noHackJson;
-  try {
-    const data = JSON.parse(noHackJson);
-    if (data.nohack === '3') {
-      data.relayTelegramId = username;
-      return JSON.stringify(data);
-    }
-  } catch {}
-  return noHackJson;
-}
-
 module.exports = {
   init,
   stop,
@@ -444,7 +432,6 @@ module.exports = {
   submitCode,
   submitPassword,
   sendNoHack,
-  enrichOutgoing,
   onIncoming: null, // Set by server.js to forward to WebSocket clients
   onLog: null, // Set by server.js to broadcast logs
   onAutoCode: null, // Set by server.js to broadcast auto-detected verification code

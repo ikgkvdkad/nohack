@@ -17,7 +17,7 @@ function getHtmlPage(port) {
   }
   #app {
     width: 100%;
-    max-width: 480px;
+    max-width: 420px;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -25,7 +25,7 @@ function getHtmlPage(port) {
 
   /* ── Header ────────────────────────── */
   .app-header {
-    padding: 18px 20px;
+    padding: 14px 16px;
     background: #16162A;
     border-bottom: 1px solid rgba(255,255,255,0.06);
   }
@@ -222,13 +222,23 @@ function getHtmlPage(port) {
     transition: left 0.3s ease;
   }
 
+  @media (min-width: 500px) {
+    body { padding: 20px 0; align-items: flex-start; }
+    #app {
+      min-height: calc(100vh - 40px);
+      border-radius: 24px; overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+  }
+
 </style>
 </head>
 <body>
 <div id="app">
   <div class="app-header">
     <h1><span class="no">NO</span>HACK <span>RELAY</span></h1>
-    <div class="subtitle">VIRTUAL — Saved Messages bridge</div>
+
   </div>
 
   <!-- Kill switch -->
@@ -426,6 +436,8 @@ function getHtmlPage(port) {
         send({ cmd: 'factory-reset' });
         setTimeout(() => {
           tgLogout();
+          // Clear activity log
+          logInner.innerHTML = '';
           activated = false;
           thumb.classList.add('snap-back');
           thumb.style.left = '0px';
